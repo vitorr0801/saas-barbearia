@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Tech-Dark Minimalist Design System for Premium Barbershop SaaS */
+
+@layer base {
+  :root {
+    /* Dark theme only - Premium barbershop aesthetic */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Amber/Burnt Orange - The signature accent */
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 22%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+
+    --border: 217 33% 25%;
+    --input: 217 33% 22%;
+    --ring: 38 92% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --surface-elevated: 217 33% 20%;
+    --amber-glow: 38 92% 50%;
+    --amber-subtle: 38 92% 50% / 0.15;
+    --text-primary: 210 40% 98%;
+    --text-secondary: 215 20% 65%;
+    --text-tertiary: 215 20% 50%;
+
+    /* Gradients */
+    --gradient-amber: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(25 95% 53%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(217 33% 20%) 0%, hsl(217 33% 17%) 100%);
+    --gradient-chart: linear-gradient(180deg, hsl(38 92% 50% / 0.3) 0%, hsl(38 92% 50% / 0.05) 100%);
+
+    /* Shadows */
+    --shadow-card: 0 4px 24px -4px hsl(222 47% 5% / 0.5);
+    --shadow-elevated: 0 8px 32px -8px hsl(222 47% 5% / 0.6);
+    --shadow-glow: 0 0 20px hsl(38 92% 50% / 0.3);
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 217 33% 22%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 25%;
+    --sidebar-ring: 38 92% 50%;
+  }
+
+  /* Dark mode is the only mode */
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 22%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 25%;
+    --input: 217 33% 22%;
+    --ring: 38 92% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Premium Card Styles */
+  .card-premium {
+    @apply bg-card rounded-xl border border-border;
+    background: linear-gradient(180deg, hsl(var(--surface-elevated)) 0%, hsl(var(--card)) 100%);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-premium-hover {
+    @apply card-premium transition-all duration-300;
+  }
+
+  .card-premium-hover:hover {
+    box-shadow: var(--shadow-elevated);
+    border-color: hsl(var(--amber-glow) / 0.3);
+  }
+
+  /* KPI Card Styling */
+  .kpi-card {
+    @apply relative overflow-hidden rounded-xl border border-border p-6;
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .kpi-value {
+    @apply text-4xl font-bold tracking-tight text-foreground;
+  }
+
+  .kpi-label {
+    @apply text-sm font-medium text-muted-foreground uppercase tracking-wider;
+  }
+
+  /* Amber Glow Effects */
+  .glow-amber {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-amber-subtle {
+    box-shadow: 0 0 12px hsl(var(--amber-glow) / 0.2);
+  }
+
+  /* Selection States */
+  .selection-ring {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Button Variants */
+  .btn-primary-glow {
+    @apply bg-primary text-primary-foreground font-semibold;
+    box-shadow: 0 4px 16px hsl(var(--amber-glow) / 0.4);
+  }
+
+  .btn-primary-glow:hover {
+    box-shadow: 0 6px 24px hsl(var(--amber-glow) / 0.5);
+  }
+
+  /* Time Slot Pills */
+  .time-slot {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+    @apply bg-secondary text-secondary-foreground border border-transparent;
+  }
+
+  .time-slot:hover:not(.time-slot-selected):not(:disabled) {
+    @apply bg-secondary/80 border-border;
+  }
+
+  .time-slot-selected {
+    @apply bg-primary text-primary-foreground;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .time-slot:disabled {
+    @apply opacity-40 cursor-not-allowed;
+  }
+
+  /* Service Card */
+  .service-card {
+    @apply relative p-4 rounded-xl border border-border bg-card transition-all duration-300 cursor-pointer;
+  }
+
+  .service-card:hover {
+    @apply border-primary/30;
+    background: linear-gradient(180deg, hsl(var(--surface-elevated)) 0%, hsl(var(--card)) 100%);
+  }
+
+  .service-card-selected {
+    @apply border-primary bg-primary/10;
+    box-shadow: 0 0 20px hsl(var(--amber-glow) / 0.2);
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  .text-gradient-amber {
+    background: var(--gradient-amber);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-amber {
+    background: var(--gradient-amber);
+  }
+
+  .bg-gradient-chart {
+    background: var(--gradient-chart);
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out;
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
