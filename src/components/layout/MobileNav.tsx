@@ -1,4 +1,4 @@
- import { Calendar, LayoutDashboard, Package, Scissors, Wallet } from "lucide-react";
+import { Calendar, LayoutDashboard, Package, Scissors, Wallet } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 export function MobileNav() {
@@ -22,12 +22,12 @@ export function MobileNav() {
           <span className="text-xs font-medium">Dashboard</span>
         </NavLink>
         <NavLink
-          to="/agenda"
+          to="/agendamentos"
           className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
           activeClassName="text-primary"
         >
           <Calendar className="h-5 w-5" />
-          <span className="text-xs font-medium">Agenda</span>
+          <span className="text-xs font-medium">Agendamentos</span>
         </NavLink>
         <NavLink
           to="/financeiro"

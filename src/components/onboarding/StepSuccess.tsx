@@ -1,6 +1,6 @@
- import { CheckCircle2, LayoutDashboard, Calendar, Sparkles } from "lucide-react";
- import { Button } from "@/components/ui/button";
- import { useNavigate } from "react-router-dom";
+import { CheckCircle2, LayoutDashboard, Calendar, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
  
  export function StepSuccess() {
    const navigate = useNavigate();
@@ -37,7 +37,7 @@
          <Button
            variant="outline"
            size="lg"
-           onClick={() => navigate("/agenda")}
+          onClick={() => navigate("/agendamentos")}
            className="w-full border-border hover:bg-secondary"
          >
            <Calendar className="h-5 w-5 mr-2" />

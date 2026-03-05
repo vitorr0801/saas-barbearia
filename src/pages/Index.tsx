@@ -6,6 +6,8 @@ import { ServiceCard } from "@/components/booking/ServiceCard";
 import { ProfessionalCard } from "@/components/booking/ProfessionalCard";
 import { DatePickerScroll } from "@/components/booking/DatePickerScroll";
 import { TimeSlotGrid } from "@/components/booking/TimeSlotGrid";
+import { NavLink } from "@/components/NavLink";
+import { DesktopNav } from "@/components/layout/DesktopNav";
 
 const services = [
   { id: "1", name: "Corte Cabelo", duration: "30 min", price: "R$ 45" },
@@ -88,17 +90,44 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      <DesktopNav />
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border">
         <div className="container py-4">
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-amber flex items-center justify-center">
-              <Scissors className="h-5 w-5 text-primary-foreground" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-amber flex items-center justify-center">
+                <Scissors className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-foreground">BarberPro</h1>
+                <p className="text-xs text-muted-foreground">Book your cut</p>
+              </div>
             </div>
-            <div className="text-center">
-              <h1 className="text-lg font-bold text-foreground">BarberPro</h1>
-              <p className="text-xs text-muted-foreground">Book your cut</p>
-            </div>
+
+            <nav className="hidden xs:flex items-center gap-1">
+              <NavLink
+                to="/dashboard"
+                className="px-3 py-1.5 rounded-full text-xs sm:text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                activeClassName="bg-secondary text-foreground"
+              >
+                Dashboard
+              </NavLink>
+              <NavLink
+                to="/agendamentos"
+                className="px-3 py-1.5 rounded-full text-xs sm:text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                activeClassName="bg-secondary text-foreground"
+              >
+                Agendamentos
+              </NavLink>
+              <NavLink
+                to="/financeiro"
+                className="px-3 py-1.5 rounded-full text-xs sm:text-sm text-muted-foreground hover:bg-secondary transition-colors"
+                activeClassName="bg-secondary text-foreground"
+              >
+                Financeiro
+              </NavLink>
+            </nav>
           </div>
         </div>
       </header>

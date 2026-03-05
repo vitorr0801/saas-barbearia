@@ -1,7 +1,10 @@
- import { Calendar, LayoutDashboard, Package, Scissors, Wallet } from "lucide-react";
+import { Calendar, LayoutDashboard, Package, Scissors, User, Users, Wrench, Wallet } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/context/AuthContext";
 
 export function DesktopNav() {
+  const { isAuthenticated, role, logout } = useAuth();
+
   return (
     <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur-lg">
       <div className="container flex items-center justify-between h-16">
@@ -30,12 +33,12 @@ export function DesktopNav() {
             <span className="text-sm font-medium">Dashboard</span>
           </NavLink>
           <NavLink
-            to="/agenda"
+            to="/agendamentos"
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
             activeClassName="bg-secondary text-foreground"
           >
             <Calendar className="h-4 w-4" />
-            <span className="text-sm font-medium">Agenda</span>
+            <span className="text-sm font-medium">Agendamentos</span>
           </NavLink>
           <NavLink
             to="/financeiro"
@@ -52,7 +55,61 @@ export function DesktopNav() {
            >
              <Package className="h-4 w-4" />
              <span className="text-sm font-medium">Produtos</span>
-           </NavLink>
+          </NavLink>
+          <NavLink
+            to="/setup"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
+            activeClassName="bg-secondary text-foreground"
+          >
+            <Wrench className="h-4 w-4" />
+            <span className="text-sm font-medium">Setup</span>
+          </NavLink>
+          <NavLink
+            to="/bancada"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
+            activeClassName="bg-secondary text-foreground"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="text-sm font-medium">Bancada</span>
+          </NavLink>
+          {isAuthenticated && role === "cliente" && (
+            <NavLink
+              to="/perfil/cliente"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
+              activeClassName="bg-secondary text-foreground"
+            >
+              <User className="h-4 w-4" />
+              <span className="text-sm font-medium">Meu Perfil</span>
+            </NavLink>
+          )}
+          {isAuthenticated && role === "profissional" && (
+            <NavLink
+              to="/perfil/barbeiro"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
+              activeClassName="bg-secondary text-foreground"
+            >
+              <Users className="h-4 w-4" />
+              <span className="text-sm font-medium">Meu Perfil</span>
+            </NavLink>
+          )}
+          {!isAuthenticated ? (
+            <NavLink
+              to="/cadastro"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
+              activeClassName="bg-secondary text-foreground"
+            >
+              <User className="h-4 w-4" />
+              <span className="text-sm font-medium">Entrar</span>
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary text-sm font-medium"
+            >
+              Sair
+            </button>
+          )}
         </div>
       </div>
     </nav>

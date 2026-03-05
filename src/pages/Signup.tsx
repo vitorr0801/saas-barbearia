@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 type Role = "cliente" | "profissional" | null;
 
@@ -20,6 +22,9 @@ function getWhatsAppDigits(formatted: string) {
 }
 
 export default function Signup() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [step, setStep] = useState<1 | 2>(1);
   const [role, setRole] = useState<Role>(null);
   const [name, setName] = useState("");
@@ -70,7 +75,19 @@ export default function Signup() {
       toast.error("Digite o código completo");
       return;
     }
+    if (!role) {
+      toast.error("Selecione se você é cliente ou profissional");
+      return;
+    }
+
+    login(role);
     toast.success("Conta criada com sucesso!");
+
+    if (role === "cliente") {
+      navigate("/perfil/cliente", { replace: true });
+    } else {
+      navigate("/perfil/barbeiro", { replace: true });
+    }
   };
 
   const maskedNumber = whatsappDigits
