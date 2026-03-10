@@ -19,9 +19,9 @@ export function DesktopNav() {
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Home / Booking - visible for everyone */}
+          {/* Booking - visible for everyone */}
           <NavLink
-            to="/"
+            to="/agendar"
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
             activeClassName="bg-secondary text-foreground"
           >

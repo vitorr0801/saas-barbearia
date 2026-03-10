@@ -40,6 +40,7 @@ export default function Signup() {
   const [canResend, setCanResend] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [loginRole, setLoginRole] = useState<MaybeRole>(null);
 
   const whatsappDigits = getWhatsAppDigits(whatsapp);
   const isNameValid = name.trim().length >= 3;
@@ -112,10 +113,11 @@ export default function Signup() {
     window.localStorage.setItem("user", JSON.stringify(finalUser));
     login(finalUser);
 
+    // Cliente cai no fluxo de agendamento, barbeiro no dashboard
     if (finalUser.role === "cliente") {
-      navigate("/perfil/cliente", { replace: true });
+      navigate("/agendar", { replace: true });
     } else {
-      navigate("/perfil/barbeiro", { replace: true });
+      navigate("/dashboard", { replace: true });
     }
   };
 
@@ -125,14 +127,26 @@ export default function Signup() {
       return;
     }
 
+    if (!loginRole) {
+      toast.error("Selecione se você é cliente ou barbeiro");
+      return;
+    }
+
     const mockUser: AuthUser = {
       name: "Vítor",
       phone: loginIdentifier,
-      role: "barbeiro",
+      role: loginRole,
     };
 
     window.localStorage.setItem("user", JSON.stringify(mockUser));
     login(mockUser);
+
+    // Cliente cai no fluxo de agendamento, barbeiro no dashboard
+    if (mockUser.role === "cliente") {
+      navigate("/agendar", { replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
   };
 
   const maskedNumber = whatsappDigits
@@ -294,6 +308,46 @@ export default function Signup() {
               <p className="text-sm text-muted-foreground mt-1">
                 Acesse sua conta com login e senha
               </p>
+            </div>
+
+            {/* Role Selector (login) */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {([
+                { id: "cliente" as const, label: "Sou Cliente", Icon: User, desc: "Ver meus agendamentos" },
+                { id: "barbeiro" as const, label: "Sou Barbeiro", Icon: Scissors, desc: "Gerenciar barbearia" },
+              ]).map(({ id, label, Icon, desc }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setLoginRole(id)}
+                  className={cn(
+                    "relative rounded-xl border-2 p-4 text-left transition-all duration-300",
+                    "bg-card hover:border-primary/40",
+                    loginRole === id
+                      ? "border-primary glow-amber-subtle"
+                      : "border-border"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors",
+                      loginRole === id ? "bg-primary/20" : "bg-secondary"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-5 w-5",
+                        loginRole === id ? "text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                  {loginRole === id && (
+                    <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-primary animate-scale-in" />
+                  )}
+                </button>
+              ))}
             </div>
 
             <div className="space-y-4">
