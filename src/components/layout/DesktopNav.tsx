@@ -1,9 +1,11 @@
 import { Calendar, LayoutDashboard, Package, Scissors, User, Users, Wrench, Wallet } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export function DesktopNav() {
   const { isAuthenticated, role, logout } = useAuth();
+  const navigate = useNavigate();
 
   const isBarbeiro = role === "barbeiro";
   const isCliente = role === "cliente";
@@ -19,7 +21,7 @@ export function DesktopNav() {
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Booking - visible for everyone */}
+          {/* Booking - visível para todos */}
           <NavLink
             to="/agendar"
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
@@ -120,7 +122,10 @@ export function DesktopNav() {
           ) : (
             <button
               type="button"
-              onClick={logout}
+              onClick={() => {
+                logout();
+                navigate("/");
+              }}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary text-sm font-medium"
             >
               Sair

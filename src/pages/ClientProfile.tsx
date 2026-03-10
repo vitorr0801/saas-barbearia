@@ -7,6 +7,7 @@ import { ClientPersonalInfo } from "@/components/profile/ClientPersonalInfo";
 import { ClientActivityHub } from "@/components/profile/ClientActivityHub";
 import { ClientFavorites } from "@/components/profile/ClientFavorites";
 import { SaveBar } from "@/components/profile/SaveBar";
+import { AppLayout } from "@/components/layout/AppLayout";
 
 export default function ClientProfile() {
   const navigate = useNavigate();
@@ -30,35 +31,37 @@ export default function ClientProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Top bar */}
-      <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold text-foreground">Meu Perfil</h1>
-      </div>
+    <AppLayout>
+      <div className="min-h-[calc(100vh-4rem)] pb-24">
+        {/* Top bar */}
+        <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-foreground">Meu Perfil</h1>
+        </div>
 
-      <div className="mx-auto max-w-lg px-4 space-y-5">
-        <ClientProfileHeader
-          name={data.name}
-          memberSince="Jan 2024"
-          isEditing={isEditing}
-          onToggleEdit={() => {
-            setIsEditing(!isEditing);
-            if (isEditing) setHasChanges(false);
-          }}
-        />
-        <ClientPersonalInfo
-          isEditing={isEditing}
-          data={data}
-          onChange={handleFieldChange}
-        />
-        <ClientActivityHub />
-        <ClientFavorites />
-      </div>
+        <div className="mx-auto max-w-lg px-4 space-y-5">
+          <ClientProfileHeader
+            name={data.name}
+            memberSince="Jan 2024"
+            isEditing={isEditing}
+            onToggleEdit={() => {
+              setIsEditing(!isEditing);
+              if (isEditing) setHasChanges(false);
+            }}
+          />
+          <ClientPersonalInfo
+            isEditing={isEditing}
+            data={data}
+            onChange={handleFieldChange}
+          />
+          <ClientActivityHub />
+          <ClientFavorites />
+        </div>
 
-      <SaveBar visible={isEditing && hasChanges} onSave={handleSave} />
-    </div>
+        <SaveBar visible={isEditing && hasChanges} onSave={handleSave} />
+      </div>
+    </AppLayout>
   );
 }

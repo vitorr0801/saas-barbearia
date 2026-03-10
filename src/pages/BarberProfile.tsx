@@ -9,6 +9,7 @@ import { BarberServices } from "@/components/profile/BarberServices";
 import { BarberGallery } from "@/components/profile/BarberGallery";
 import { BarberSocialLinks } from "@/components/profile/BarberSocialLinks";
 import { SaveBar } from "@/components/profile/SaveBar";
+import { AppLayout } from "@/components/layout/AppLayout";
 
 const defaultSchedule = {
   seg: { enabled: true, start: "09:00", end: "19:00" },
@@ -63,54 +64,56 @@ export default function BarberProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold text-foreground">Perfil Profissional</h1>
-      </div>
+    <AppLayout>
+      <div className="min-h-[calc(100vh-4rem)] pb-24">
+        <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-foreground">Perfil Profissional</h1>
+        </div>
 
-      <div className="mx-auto max-w-lg px-4 space-y-5 mt-1">
-        <BarberProfileHeader
-          name="Rafael Lima"
-          rating={4.9}
-          reviewCount={127}
-          isEditing={isEditing}
-          onToggleEdit={() => {
-            setIsEditing(!isEditing);
-            if (isEditing) setHasChanges(false);
-          }}
-        />
-        <BarberBio
-          isEditing={isEditing}
-          bio={bio}
-          specialties={specialties}
-          onBioChange={(v) => { setBio(v); markChanged(); }}
-          onSpecialtiesChange={(v) => { setSpecialties(v); markChanged(); }}
-        />
-        <BarberWorkHours
-          isEditing={isEditing}
-          schedule={schedule}
-          onChange={handleScheduleChange}
-        />
-        <BarberServices
-          isEditing={isEditing}
-          allServices={shopServices}
-          activeIds={activeServiceIds}
-          onToggle={toggleService}
-        />
-        <BarberGallery isEditing={isEditing} images={[]} />
-        <BarberSocialLinks
-          isEditing={isEditing}
-          instagram={instagram}
-          portfolio={portfolio}
-          onInstagramChange={(v) => { setInstagram(v); markChanged(); }}
-          onPortfolioChange={(v) => { setPortfolio(v); markChanged(); }}
-        />
-      </div>
+        <div className="mx-auto max-w-lg px-4 space-y-5 mt-1">
+          <BarberProfileHeader
+            name="Rafael Lima"
+            rating={4.9}
+            reviewCount={127}
+            isEditing={isEditing}
+            onToggleEdit={() => {
+              setIsEditing(!isEditing);
+              if (isEditing) setHasChanges(false);
+            }}
+          />
+          <BarberBio
+            isEditing={isEditing}
+            bio={bio}
+            specialties={specialties}
+            onBioChange={(v) => { setBio(v); markChanged(); }}
+            onSpecialtiesChange={(v) => { setSpecialties(v); markChanged(); }}
+          />
+          <BarberWorkHours
+            isEditing={isEditing}
+            schedule={schedule}
+            onChange={handleScheduleChange}
+          />
+          <BarberServices
+            isEditing={isEditing}
+            allServices={shopServices}
+            activeIds={activeServiceIds}
+            onToggle={toggleService}
+          />
+          <BarberGallery isEditing={isEditing} images={[]} />
+          <BarberSocialLinks
+            isEditing={isEditing}
+            instagram={instagram}
+            portfolio={portfolio}
+            onInstagramChange={(v) => { setInstagram(v); markChanged(); }}
+            onPortfolioChange={(v) => { setPortfolio(v); markChanged(); }}
+          />
+        </div>
 
-      <SaveBar visible={isEditing && hasChanges} onSave={handleSave} />
-    </div>
+        <SaveBar visible={isEditing && hasChanges} onSave={handleSave} />
+      </div>
+    </AppLayout>
   );
 }
