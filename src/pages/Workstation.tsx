@@ -3,6 +3,7 @@ import { CurrentAppointmentCard } from "@/components/workstation/CurrentAppointm
 import { AppointmentQueue } from "@/components/workstation/AppointmentQueue";
 import { QuickActions } from "@/components/workstation/QuickActions";
 import { DelayModal } from "@/components/workstation/DelayModal";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { User, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,69 +62,71 @@ export default function Workstation() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Minimal Header */}
-      <header className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-            <User className="w-4 h-4 text-primary" />
-          </div>
-          <span className="font-semibold text-foreground">Bancada 01</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span>
-            {new Date().toLocaleDateString("pt-BR", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-            })}
-          </span>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        {currentAppointment ? (
-          <CurrentAppointmentCard
-            clientName={currentAppointment.clientName}
-            serviceName={currentAppointment.serviceName}
-            startTime={currentAppointment.startTime}
-            onFinish={handleFinishAppointment}
-          />
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-6">
-            <div className="w-20 h-20 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
-              <User className="w-10 h-10 text-muted-foreground" />
+    <AppLayout>
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Minimal Header */}
+        <header className="p-4 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+              <User className="w-4 h-4 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold text-foreground mb-2">
-              Bancada Livre
-            </h2>
-            <p className="text-muted-foreground text-center">
-              Toque em "Chamar Próximo" para iniciar o atendimento
-            </p>
+            <span className="font-semibold text-foreground">Bancada 01</span>
           </div>
-        )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {new Date().toLocaleDateString("pt-BR", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
+          </div>
+        </header>
 
-        {/* Queue Section */}
-        <AppointmentQueue appointments={queue} />
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {currentAppointment ? (
+            <CurrentAppointmentCard
+              clientName={currentAppointment.clientName}
+              serviceName={currentAppointment.serviceName}
+              startTime={currentAppointment.startTime}
+              onFinish={handleFinishAppointment}
+            />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-6">
+              <div className="w-20 h-20 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
+                <User className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                Bancada Livre
+              </h2>
+              <p className="text-muted-foreground text-center">
+                Toque em "Chamar Próximo" para iniciar o atendimento
+              </p>
+            </div>
+          )}
+
+          {/* Queue Section */}
+          <AppointmentQueue appointments={queue} />
+        </div>
+
+        {/* Quick Actions Footer */}
+        <QuickActions
+          onDelayClick={() => setDelayModalOpen(true)}
+          onCallNextClick={handleCallNext}
+          onMessageClick={handleMessage}
+          hasCurrentAppointment={!!currentAppointment}
+          currentClientPhone={currentAppointment?.phone}
+        />
+
+        {/* Delay Modal */}
+        <DelayModal
+          open={delayModalOpen}
+          onOpenChange={setDelayModalOpen}
+          nextClientName={queue[0]?.clientName}
+        />
       </div>
-
-      {/* Quick Actions Footer */}
-      <QuickActions
-        onDelayClick={() => setDelayModalOpen(true)}
-        onCallNextClick={handleCallNext}
-        onMessageClick={handleMessage}
-        hasCurrentAppointment={!!currentAppointment}
-        currentClientPhone={currentAppointment?.phone}
-      />
-
-      {/* Delay Modal */}
-      <DelayModal
-        open={delayModalOpen}
-        onOpenChange={setDelayModalOpen}
-        nextClientName={queue[0]?.clientName}
-      />
-    </div>
+    </AppLayout>
   );
 }

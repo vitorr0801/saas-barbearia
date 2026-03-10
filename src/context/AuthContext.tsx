@@ -1,46 +1,62 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-type Role = "cliente" | "profissional" | null;
+export type Role = "cliente" | "barbeiro";
+
+export interface AuthUser {
+  name: string;
+  phone: string;
+  role: Role;
+}
 
 interface AuthContextValue {
-  role: Role;
+  currentUser: AuthUser | null;
+  role: Role | null;
   isAuthenticated: boolean;
-  login: (role: Exclude<Role, null>) => void;
+  login: (user: AuthUser) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "barberpro_auth_role";
+const CURRENT_USER_STORAGE_KEY = "barberpro_current_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Role | null;
-    if (stored === "cliente" || stored === "profissional") {
-      setRole(stored);
+    try {
+      const raw = window.localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as AuthUser;
+      if (parsed && parsed.role && (parsed.role === "cliente" || parsed.role === "barbeiro")) {
+        setCurrentUser(parsed);
+      }
+    } catch {
+      // Ignore malformed data
+      window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
     }
   }, []);
 
-  const login = (newRole: Exclude<Role, null>) => {
-    setRole(newRole);
-    window.localStorage.setItem(STORAGE_KEY, newRole);
+  const login = (user: AuthUser) => {
+    setCurrentUser(user);
+    window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
   };
 
   const logout = () => {
-    setRole(null);
-    window.localStorage.removeItem(STORAGE_KEY);
+    setCurrentUser(null);
+    window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
   };
 
   const value = useMemo(
     () => ({
-      role,
-      isAuthenticated: role !== null,
+      currentUser,
+      role: currentUser?.role ?? null,
+      isAuthenticated: currentUser !== null,
       login,
       logout,
     }),
-    [role],
+    [currentUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

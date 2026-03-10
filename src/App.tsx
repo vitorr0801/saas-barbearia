@@ -25,13 +25,19 @@ function ProtectedRoute({
   allowedRoles,
 }: {
   children: JSX.Element;
-  allowedRoles?: Array<"cliente" | "profissional">;
+  allowedRoles?: Array<"cliente" | "barbeiro">;
 }) {
   const { isAuthenticated, role } = useAuth();
   const location = useLocation();
 
-  if (!isAuthenticated || (allowedRoles && (!role || !allowedRoles.includes(role)))) {
+  // Unauthenticated users go to login/signup
+  if (!isAuthenticated) {
     return <Navigate to="/cadastro" replace state={{ from: location }} />;
+  }
+
+  // Authenticated but without permission go to home
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -47,13 +53,48 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/descobrir" element={<ClientPortal />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/agendamentos" element={<Agenda />} />
-            <Route path="/financeiro" element={<Financial />} />
+            <Route
+              path="/financeiro"
+              element={
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
+                  <Financial />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/checkout" element={<Checkout />} />
-            <Route path="/produtos" element={<Products />} />
-            <Route path="/setup" element={<Onboarding />} />
-            <Route path="/bancada" element={<Workstation />} />
+            <Route
+              path="/produtos"
+              element={
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
+                  <Products />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/setup"
+              element={
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bancada"
+              element={
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
+                  <Workstation />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/perfil/cliente"
               element={
@@ -65,7 +106,7 @@ const App = () => (
             <Route
               path="/perfil/barbeiro"
               element={
-                <ProtectedRoute allowedRoles={["profissional"]}>
+                <ProtectedRoute allowedRoles={["barbeiro"]}>
                   <BarberProfile />
                 </ProtectedRoute>
               }
