@@ -1,67 +1,126 @@
-import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { ClientProfileHeader } from "@/components/profile/ClientProfileHeader";
-import { ClientPersonalInfo } from "@/components/profile/ClientPersonalInfo";
-import { ClientActivityHub } from "@/components/profile/ClientActivityHub";
-import { ClientFavorites } from "@/components/profile/ClientFavorites";
-import { SaveBar } from "@/components/profile/SaveBar";
-import { AppLayout } from "@/components/layout/AppLayout";
+"use client"
+
+import React, { useState, useEffect } from "react"
+import { useAuth } from "@/context/AuthContext"
+import { supabase } from "@/lib/supabase" // Importação vital
+import { toast } from "sonner" // Para feedbacks visuais
+import { Header } from "@/components/Header"
+import { ClientProfileHeader } from "@/components/profile/ClientProfileHeader"
+import { ClientPersonalInfo } from "@/components/profile/ClientPersonalInfo"
+import { ClientFavorites } from "@/components/profile/ClientFavorites"
+import { SaveBar } from "@/components/profile/SaveBar"
 
 export default function ClientProfile() {
-  const navigate = useNavigate();
+  // 🚀 Adicionamos o 'refreshUser' para atualizar o Header e outros componentes após o save
+  const { currentUser, isLoading, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // Estado para o loading do botão
+  
   const [data, setData] = useState({
-    name: "Lucas Mendes",
-    whatsapp: "(61) 99123-4567",
-    cpf: "12345678901",
-    email: "lucas.mendes@email.com",
+    name: "",
+    whatsapp: "",
+    cpf: "",
+    email: "",
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setData({
+        name: currentUser.name || "",
+        whatsapp: currentUser.phone || "",
+        cpf: "", 
+        email: currentUser.email || "",
+      });
+    }
+  }, [currentUser]);
 
   const handleFieldChange = (field: string, value: string) => {
     setData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    setHasChanges(false);
-    setIsEditing(false);
+  /**
+   * 🛡️ LÓGICA DE PERSISTÊNCIA MUNDIAL
+   */
+  const handleSave = async () => {
+    if (!currentUser?.id) return;
+
+    setIsSaving(true);
+    const toastId = toast.loading("Salvando alterações...");
+
+    try {
+      // 1. Enviamos os dados para a tabela 'profiles'
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: data.name,
+          phone: data.whatsapp.replace(/\D/g, ""), // Limpa a máscara (salva só números)
+          // Se tiver campo de CPF no banco, adicione aqui: cpf: data.cpf
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      // 2. 🚀 O SEGREDO: Força o AuthContext a ler os novos dados do banco
+      await refreshUser();
+
+      toast.success("Perfil atualizado!", { id: toastId });
+      setHasChanges(false);
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Erro ao salvar:", error);
+      toast.error(error.message || "Erro ao salvar dados", { id: toastId });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  return (
-    <AppLayout>
-      <div className="min-h-[calc(100vh-4rem)] pb-24">
-        {/* Top bar */}
-        <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-foreground">Meu Perfil</h1>
-        </div>
+  if (isLoading) return null;
 
-        <div className="mx-auto max-w-lg px-4 space-y-5">
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+
+      <main className="container pt-28 pb-24 max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <header className="px-4 mb-8">
+          <h1 className="text-3xl font-black tracking-tighter text-foreground uppercase italic leading-none">
+            Meu Perfil
+          </h1>
+          <p className="text-muted-foreground text-sm mt-2">
+            Gerencie suas informações pessoais e barbearias favoritas.
+          </p>
+        </header>
+
+        <div className="px-4 space-y-6">
           <ClientProfileHeader
             name={data.name}
-            memberSince="Jan 2024"
+            memberSince="Membro BarberPro"
             isEditing={isEditing}
             onToggleEdit={() => {
               setIsEditing(!isEditing);
               if (isEditing) setHasChanges(false);
             }}
           />
+          
           <ClientPersonalInfo
             isEditing={isEditing}
             data={data}
             onChange={handleFieldChange}
           />
-          <ClientActivityHub />
+          
           <ClientFavorites />
         </div>
 
-        <SaveBar visible={isEditing && hasChanges} onSave={handleSave} />
-      </div>
-    </AppLayout>
+        {/* DICA: Se o seu componente SaveBar aceitar uma prop de loading, 
+          passe o 'isSaving' para ele desabilitar o botão enquanto salva.
+        */}
+        <SaveBar 
+          visible={isEditing && hasChanges} 
+          onSave={handleSave} 
+          isLoading={isSaving} 
+        />
+      </main>
+    </div>
   );
 }

@@ -1,17 +1,18 @@
-import { useState } from "react";
-import { User, Scissors, Eye, EyeOff, Phone, Mail, Lock, CheckCircle2, ChevronLeft, ArrowRight } from "lucide-react";
+"use client"
+
+import { useState, useEffect } from "react";
+import { User, Scissors, Eye, EyeOff, Mail, Lock, CheckCircle2, ChevronLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { Role, AuthUser, useAuth } from "@/context/AuthContext";
+import { Role, useAuth } from "@/context/AuthContext";
+import { supabase } from '@/lib/supabase';
 
 type MaybeRole = Role | null;
 
-const USERS_STORAGE_KEY = "barberpro_users";
-
+// Helper: Formatação de WhatsApp
 function formatWhatsApp(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -25,7 +26,7 @@ function getWhatsAppDigits(formatted: string) {
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { isAuthenticated, refreshUser, isLoading } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
@@ -35,453 +36,212 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [countdown, setCountdown] = useState(59);
-  const [canResend, setCanResend] = useState(false);
+  
   const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [loginRole, setLoginRole] = useState<MaybeRole>(null);
+
+  /**
+   * 🛡️ 1. PROTEÇÃO DE ACESSO
+   * Se o usuário já está logado, ele não deve conseguir ver esta página.
+   * Redirecionamos ele automaticamente para a raiz.
+   */
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      console.log("🛡️ [Signup] Usuário já autenticado, redirecionando para Home...");
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const whatsappDigits = getWhatsAppDigits(whatsapp);
   const isNameValid = name.trim().length >= 3;
   const isWhatsappValid = whatsappDigits.length === 11;
   const isPasswordValid = password.length >= 6;
-  const canProceed = !!role && isNameValid && isWhatsappValid && isPasswordValid;
+  const isEmailValid = /\S+@\S+\.\S+/.test(email.trim());
+  const canProceed = !!role && isNameValid && isWhatsappValid && isPasswordValid && isEmailValid;
 
-  const startCountdown = () => {
-    setCanResend(false);
-    setCountdown(59);
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setCanResend(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleSendCode = () => {
+  /**
+   * 📡 CADASTRO (SIGN UP)
+   */
+  const handleSendCode = async () => {
     if (!canProceed) return;
-    setStep(2);
-    startCountdown();
-    toast.success("Código enviado para seu WhatsApp!");
-  };
+    const toastId = toast.loading("Criando sua conta...");
 
-  const handleResend = () => {
-    if (!canResend) return;
-    startCountdown();
-    toast.success("Código reenviado!");
-  };
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            full_name: name,
+            phone: whatsappDigits,
+            role: role,
+          },
+        },
+      });
 
-  const handleGoToLogin = () => {
-    setAuthMode("login");
-    setStep(1);
-  };
+      if (error) throw error;
 
-  const handleBackToSignup = () => {
-    setAuthMode("signup");
-    setStep(1);
-  };
-
-  const handleValidate = () => {
-    if (otp.length < 6) {
-      toast.error("Digite o código completo");
-      return;
-    }
-
-    if (otp !== "123456") {
-      toast.error("Código inválido. Use 123456 para testes.");
-      return;
-    }
-
-    const phone = whatsappDigits;
-    if (phone.length !== 11) {
-      toast.error("WhatsApp inválido");
-      return;
-    }
-
-    // Fluxo de criação de conta (signup) com OTP
-    let finalUser: AuthUser = {
-      name: name || "Nome",
-      phone,
-      role: role || "barbeiro",
-    };
-
-    window.localStorage.setItem("user", JSON.stringify(finalUser));
-    login(finalUser);
-
-    // Cliente cai no fluxo de agendamento, barbeiro no dashboard
-    if (finalUser.role === "cliente") {
-      navigate("/agendar", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
+      toast.success("Verifique seu e-mail para ativar a conta!", { id: toastId });
+      setStep(2);
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
     }
   };
 
-  const handleLoginSubmit = () => {
+  /**
+   * 🔑 LOGIN (SIGN IN) - BARREIRA DE SINCRONIA
+   * O segredo está no 'await refreshUser()'.
+   */
+  const handleLoginSubmit = async () => {
     if (!loginIdentifier.trim() || !loginPassword.trim()) {
-      toast.error("Preencha login e senha");
+      toast.error("Preencha todos os campos");
       return;
     }
 
-    if (!loginRole) {
-      toast.error("Selecione se você é cliente ou barbeiro");
-      return;
-    }
+    const toastId = toast.loading("Autenticando...");
 
-    const mockUser: AuthUser = {
-      name: "Vítor",
-      phone: loginIdentifier,
-      role: loginRole,
-    };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginIdentifier,
+        password: loginPassword,
+      });
 
-    window.localStorage.setItem("user", JSON.stringify(mockUser));
-    login(mockUser);
+      if (error) throw error;
 
-    // Cliente cai no fluxo de agendamento, barbeiro no dashboard
-    if (mockUser.role === "cliente") {
-      navigate("/agendar", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
+      toast.success("Login realizado com sucesso!", { id: toastId });
+
+      /**
+       * 🚀 O PULO DO GATO:
+       * Não navegamos imediatamente. Esperamos o AuthContext buscar o perfil no banco.
+       * Isso garante que quando cairmos no '/', o role já existe.
+       */
+      await refreshUser(); 
+      
+      navigate("/", { replace: true });
+    } catch (error: any) {
+      toast.error("E-mail ou senha inválidos", { id: toastId });
     }
   };
-
-  const maskedNumber = whatsappDigits
-    ? `+55 (${whatsappDigits.slice(0, 2)}) •••••-${whatsappDigits.slice(7)}`
-    : "";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Step 1 - Signup */}
-        {authMode === "signup" && (
-          <div
-            className={cn(
-              "transition-all duration-500 ease-out",
-              step === 1 ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full absolute pointer-events-none"
-            )}
-          >
-            {/* Logo / Title */}
+        {authMode === "signup" && step === 1 && (
+          <div className="animate-in fade-in slide-in-from-left-4 duration-500">
             <div className="text-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <Scissors className="h-7 w-7 text-primary" />
               </div>
-              <h1 className="text-2xl font-bold text-foreground">Criar sua conta</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Entre para a melhor plataforma de barbearias
-              </p>
+              <h1 className="text-2xl font-bold text-foreground tracking-tighter uppercase">BARBERPRO</h1>
+              <p className="text-sm text-muted-foreground mt-1">Crie sua conta em segundos</p>
             </div>
 
-            {/* Role Selector */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {([
-                { id: "cliente" as const, label: "Sou Cliente", Icon: User, desc: "Agendar serviços" },
-                { id: "barbeiro" as const, label: "Sou Barbeiro", Icon: Scissors, desc: "Gerenciar negócio" },
-              ]).map(({ id, label, Icon, desc }) => (
-                <button
-                  key={id}
-                  onClick={() => setRole(id)}
-                  className={cn(
-                    "relative rounded-xl border-2 p-4 text-left transition-all duration-300",
-                    "bg-card hover:border-primary/40",
-                    role === id
-                      ? "border-primary glow-amber-subtle"
-                      : "border-border"
-                  )}
-                >
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors",
-                    role === id ? "bg-primary/20" : "bg-secondary"
-                  )}>
-                    <Icon className={cn("h-5 w-5", role === id ? "text-primary" : "text-muted-foreground")} />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                  {role === id && (
-                    <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-primary animate-scale-in" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Form */}
-            <div className="space-y-4">
-              {/* Nome */}
-              <FormField label="Nome Completo" valid={isNameValid && name.length > 0}>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Seu nome completo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                  />
-                </div>
-              </FormField>
-
-              {/* WhatsApp */}
-              <FormField label="WhatsApp" valid={isWhatsappValid}>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">🇧🇷 +55</span>
-                  </div>
-                  <Input
-                    placeholder="(11) 99999-9999"
-                    value={whatsapp}
-                    onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))}
-                    className="pl-[5.5rem] bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                    inputMode="numeric"
-                  />
-                </div>
-              </FormField>
-
-              {/* E-mail */}
-              <FormField label="E-mail" optional>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                  />
-                </div>
-              </FormField>
-
-              {/* Senha */}
-              <FormField label="Senha" valid={isPasswordValid && password.length > 0}>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Mínimo 6 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </FormField>
-            </div>
-
-            {/* CTA */}
-            <Button
-              onClick={handleSendCode}
-              disabled={!canProceed}
-              className="w-full mt-6 h-12 text-base font-semibold btn-primary-glow disabled:opacity-50 disabled:shadow-none"
-            >
-              <Phone className="h-4 w-4 mr-2" />
-              Enviar Código via WhatsApp
-            </Button>
-
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              Já tem uma conta?{" "}
-              <button
-                type="button"
-                onClick={handleGoToLogin}
-                className="text-primary font-medium hover:underline"
-              >
-                Entrar
-              </button>
-            </p>
-          </div>
-        )}
-
-        {/* Step 1 - Login */}
-        {authMode === "login" && (
-          <div className="transition-all duration-500 ease-out opacity-100 translate-x-0">
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <User className="h-7 w-7 text-primary" />
-              </div>
-              <h1 className="text-2xl font-bold text-foreground">Entrar</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Acesse sua conta com login e senha
-              </p>
-            </div>
-
-            {/* Role Selector (login) */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {([
-                { id: "cliente" as const, label: "Sou Cliente", Icon: User, desc: "Ver meus agendamentos" },
-                { id: "barbeiro" as const, label: "Sou Barbeiro", Icon: Scissors, desc: "Gerenciar barbearia" },
-              ]).map(({ id, label, Icon, desc }) => (
+              {[
+                { id: "cliente" as const, label: "Sou Cliente", Icon: User, desc: "Agendar" },
+                { id: "barbeiro" as const, label: "Sou Barbeiro", Icon: Scissors, desc: "Gerenciar" },
+              ].map(({ id, label, Icon, desc }) => (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setLoginRole(id)}
+                  onClick={() => setRole(id)}
                   className={cn(
-                    "relative rounded-xl border-2 p-4 text-left transition-all duration-300",
-                    "bg-card hover:border-primary/40",
-                    loginRole === id
-                      ? "border-primary glow-amber-subtle"
-                      : "border-border"
+                    "relative rounded-xl border-2 p-4 text-left transition-all active:scale-95",
+                    role === id ? "border-primary bg-primary/5" : "border-border bg-card"
                   )}
                 >
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors",
-                      loginRole === id ? "bg-primary/20" : "bg-secondary"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-5 w-5",
-                        loginRole === id ? "text-primary" : "text-muted-foreground"
-                      )}
-                    />
-                  </div>
-                  <p className="text-sm font-semibold text-foreground">{label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                  {loginRole === id && (
-                    <CheckCircle2 className="absolute top-3 right-3 h-5 w-5 text-primary animate-scale-in" />
-                  )}
+                  <Icon className={cn("h-5 w-5 mb-3", role === id ? "text-primary" : "text-muted-foreground")} />
+                  <p className="text-sm font-bold">{label}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{desc}</p>
+                  {role === id && <CheckCircle2 className="absolute top-3 right-3 h-4 w-4 text-primary" />}
                 </button>
               ))}
             </div>
 
             <div className="space-y-4">
-              <FormField label="WhatsApp ou E-mail">
+              <FormField label="Nome Completo" valid={isNameValid}>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Seu WhatsApp ou e-mail"
-                    value={loginIdentifier}
-                    onChange={(e) => setLoginIdentifier(e.target.value)}
-                    className="pl-10 bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                  />
+                  <Input placeholder="Nome e sobrenome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" />
                 </div>
               </FormField>
 
-              <FormField label="Senha">
+              <FormField label="WhatsApp" valid={isWhatsappValid}>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground">+55</span>
+                  <Input placeholder="(00) 00000-0000" value={whatsapp} onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))} className="pl-12" />
+                </div>
+              </FormField>
+
+              <FormField label="E-mail" valid={isEmailValid}>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input type="email" placeholder="email@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" />
+                </div>
+              </FormField>
+
+              <FormField label="Senha" valid={isPasswordValid}>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Sua senha"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-secondary border-border focus:border-primary focus:ring-primary/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <Input type={showPassword ? "text" : "password"} placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </button>
                 </div>
               </FormField>
             </div>
 
-            <Button
-              onClick={handleLoginSubmit}
-              className="w-full mt-6 h-12 text-base font-semibold btn-primary-glow disabled:opacity-50 disabled:shadow-none"
-            >
-              Entrar
+            <Button onClick={handleSendCode} disabled={!canProceed} className="w-full mt-6 h-12 font-bold uppercase tracking-widest">
+              Criar Conta
             </Button>
 
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              Ainda não tem conta?{" "}
-              <button
-                type="button"
-                onClick={handleBackToSignup}
-                className="text-primary font-medium hover:underline"
-              >
-                Criar conta
-              </button>
+            <p className="text-center text-sm text-muted-foreground mt-6">
+              Já possui uma conta? <button onClick={() => setAuthMode("login")} className="text-primary font-bold hover:underline">ENTRAR</button>
             </p>
           </div>
         )}
 
-        {/* Step 2: OTP (apenas para signup) */}
-        {authMode === "signup" && (
-          <div
-            className={cn(
-              "transition-all duration-500 ease-out",
-              step === 2 ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full absolute pointer-events-none"
-            )}
-          >
-            <div className="text-center">
-              {/* Animated icon */}
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6 glow-amber-subtle">
-                <Phone className="h-7 w-7 text-primary" />
-              </div>
-
-              <h2 className="text-xl font-bold text-foreground">Verifique seu WhatsApp</h2>
-              <p className="text-sm text-muted-foreground mt-2 max-w-[280px] mx-auto">
-                Enviamos um código de 6 dígitos para{" "}
-                <span className="text-foreground font-medium">{maskedNumber}</span>
-              </p>
+        {authMode === "login" && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="text-center mb-8">
+              <h1 className="text-2xl font-bold text-foreground tracking-tighter uppercase">Bem-vindo de volta</h1>
+              <p className="text-sm text-muted-foreground mt-1">Acesse sua área restrita</p>
             </div>
 
-            {/* OTP Input */}
-            <div className="flex justify-center mt-8">
-              <InputOTP
-                maxLength={6}
-                value={otp}
-                onChange={setOtp}
-              >
-                <InputOTPGroup className="gap-2">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <InputOTPSlot
-                      key={i}
-                      index={i}
-                      className={cn(
-                        "w-12 h-14 text-lg font-semibold rounded-lg border-2 bg-secondary",
-                        "focus:border-primary focus:ring-2 focus:ring-primary/30",
-                        otp[i] ? "border-primary/50 text-foreground" : "border-border text-muted-foreground"
-                      )}
-                    />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
+            <div className="space-y-4">
+              <FormField label="E-mail">
+                <Input placeholder="seu@email.com" value={loginIdentifier} onChange={(e) => setLoginIdentifier(e.target.value)} />
+              </FormField>
+              <FormField label="Senha">
+                <Input type="password" placeholder="Sua senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
+              </FormField>
             </div>
 
-            {/* Resend / Edit */}
-            <div className="text-center mt-6 space-y-2">
-              <button
-                onClick={handleResend}
-                disabled={!canResend}
-                className={cn(
-                  "text-sm transition-colors",
-                  canResend ? "text-primary hover:underline" : "text-muted-foreground"
-                )}
-              >
-                {canResend
-                  ? "Reenviar código"
-                  : `Reenviar código em 00:${String(countdown).padStart(2, "0")}`}
-              </button>
-              <div>
-                <button
-                  onClick={() => setStep(1)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-                >
-                  <ChevronLeft className="h-3 w-3" />
-                  Voltar e editar número
-                </button>
-              </div>
-            </div>
-
-            {/* Validate */}
-            <Button
-              onClick={handleValidate}
-              disabled={otp.length < 6}
-              className="w-full mt-8 h-12 text-base font-semibold btn-primary-glow disabled:opacity-50 disabled:shadow-none"
-            >
-              Validar e Começar
-              <ArrowRight className="h-4 w-4 ml-2" />
+            <Button onClick={handleLoginSubmit} className="w-full mt-6 h-12 font-bold uppercase tracking-widest">
+              Acessar Sistema
             </Button>
+            <p className="text-center text-sm text-muted-foreground mt-6">
+              Ainda não é membro? <button onClick={() => setAuthMode("signup")} className="text-primary font-bold hover:underline">CADASTRAR</button>
+            </p>
+          </div>
+        )}
+
+        {authMode === "signup" && step === 2 && (
+          <div className="animate-in zoom-in duration-500 text-center">
+            <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+              <Mail className="h-10 w-10 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tighter">QUASE LÁ!</h2>
+            <p className="text-sm text-muted-foreground mt-4 mb-8">
+              Enviamos um link de confirmação para:<br/>
+              <strong className="text-foreground">{email}</strong>
+            </p>
+            <Button onClick={() => setAuthMode("login")} className="w-full h-12 font-bold uppercase tracking-widest">
+              Ir para Login <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <button onClick={() => setStep(1)} className="mt-8 text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2 mx-auto hover:text-foreground transition-colors">
+              <ChevronLeft className="h-4 w-4" /> Editar dados
+            </button>
           </div>
         )}
       </div>
@@ -489,32 +249,12 @@ export default function Signup() {
   );
 }
 
-/* Small helper component */
-function FormField({
-  label,
-  optional,
-  valid,
-  children,
-}: {
-  label: string;
-  optional?: boolean;
-  valid?: boolean;
-  children: React.ReactNode;
-}) {
+function FormField({ label, valid, children }: { label: string; valid?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {label}
-        </label>
-        <div className="flex items-center gap-1">
-          {optional && (
-            <span className="text-xs text-muted-foreground/60">Opcional</span>
-          )}
-          {valid && (
-            <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--success))] animate-scale-in" />
-          )}
-        </div>
+        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{label}</label>
+        {valid && <CheckCircle2 className="h-3.5 w-3.5 text-primary animate-in zoom-in" />}
       </div>
       {children}
     </div>

@@ -7,10 +7,13 @@ import { PaymentMethodSelector, PaymentMethod } from "@/components/checkout/Paym
 import { OnlinePaymentForm } from "@/components/checkout/OnlinePaymentForm";
 import { PresencialPaymentInfo } from "@/components/checkout/PresencialPaymentInfo";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("online");
 
   // Get booking details from navigation state or use defaults
@@ -22,19 +25,65 @@ export default function Checkout() {
     totalPrice: "R$ 80,00",
   };
 
-  const handleConfirm = () => {
-    if (paymentMethod === "online") {
+  const handleConfirm = async () => {
+    // 1. TRAVA DE SEGURANÇA: Só tenta salvar se o ID do usuário estiver pronto
+    if (!currentUser?.id) {
       toast({
-        title: "Pagamento Processado! ✅",
-        description: "Seu agendamento foi confirmado e pago com sucesso.",
+        variant: "destructive",
+        title: "Usuário não identificado ⚠️",
+        description: "Faça logout e login novamente para atualizar sua sessão.",
       });
-    } else {
+      return;
+    }
+
+    // 2. Limpeza do preço (Ex: "R$ 80,00" -> 80.00)
+    const numericPrice = parseFloat(
+      bookingDetails.totalPrice.replace(/[^\d,]/g, "").replace(",", ".")
+    );
+
+    // 3. Feedback visual
+    toast({
+      title: "Confirmando...",
+      description: "Salvando seu horário na nuvem.",
+    });
+
+    try {
+      // 4. Inserção no Supabase (Usando apenas 'currentUser')
+      const { error } = await supabase.from("appointments").insert([
+        {
+          client_id: currentUser.id, // ID vindo do AuthContext
+          
+          // SNAPSHOT: Gravando os dados atuais para o histórico do barbeiro
+          client_name_static: currentUser.name || "Cliente",
+          client_phone_static: currentUser.phone || "Não informado",
+          
+          service_name: bookingDetails.serviceName,
+          professional_name: bookingDetails.professionalName,
+          price: numericPrice,
+          
+          appointment_date: new Date().toISOString(), 
+          status: "pending",
+          payment_method: paymentMethod, 
+        },
+      ]);
+
+      if (error) throw error;
+
+      // 5. Sucesso Total!
       toast({
-        title: "Agendamento Confirmado! 📅",
-        description: "Seu horário está reservado. Pague na barbearia após o serviço.",
+        title: paymentMethod === "online" ? "Pagamento Realizado! ✅" : "Agendamento Confirmado! 📅",
+        description: "Seu horário foi reservado com sucesso!",
+      });
+
+      navigate("/");
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro no agendamento ❌",
+        description: error.message || "Não foi possível salvar. Tente novamente.",
       });
     }
-    navigate("/");
   };
 
   return (

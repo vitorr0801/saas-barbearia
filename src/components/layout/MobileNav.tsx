@@ -1,78 +1,95 @@
-import { Calendar, LayoutDashboard, Package, Scissors, Wallet } from "lucide-react";
+import { Calendar, LayoutDashboard, Package, Scissors, Wallet, User, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export function MobileNav() {
-  const { role, isAuthenticated, logout } = useAuth();
+  // 🚀 Buscando o currentUser para mostrar o nome no celular
+  const { role, isAuthenticated, logout, currentUser } = useAuth();
   const navigate = useNavigate();
 
   const isBarbeiro = role === "barbeiro";
-  const isCliente = role === "cliente";
+
+  // ✨ A mesma regra dos dois nomes para manter o padrão
+  const getFirstName = (fullName: string | undefined) => {
+    if (!fullName) return "Perfil";
+    const names = fullName.trim().split(/\s+/);
+    return names.length > 1 ? `${names[0]} ${names[1]}` : names[0];
+  };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg md:hidden pb-safe">
       <div className="flex items-center justify-around py-2">
-        {/* Agendar */}
+        
+        {/* Agendar - Sempre visível */}
         <NavLink
           to="/agendar"
-          className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
+          className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground transition-colors"
           activeClassName="text-primary"
         >
           <Scissors className="h-5 w-5" />
-          <span className="text-xs font-medium">Agendar</span>
+          <span className="text-[10px] font-medium">Agendar</span>
         </NavLink>
 
-        {/* Navegação do barbeiro */}
+        {/* Navegação específica do Barbeiro */}
         {isBarbeiro && (
           <>
             <NavLink
               to="/dashboard"
-              className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
+              className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground transition-colors"
               activeClassName="text-primary"
             >
               <LayoutDashboard className="h-5 w-5" />
-              <span className="text-xs font-medium">Dashboard</span>
+              <span className="text-[10px] font-medium">Painel</span>
             </NavLink>
             <NavLink
               to="/agendamentos"
-              className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
+              className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground transition-colors"
               activeClassName="text-primary"
             >
               <Calendar className="h-5 w-5" />
-              <span className="text-xs font-medium">Agendamentos</span>
-            </NavLink>
-            <NavLink
-              to="/financeiro"
-              className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
-              activeClassName="text-primary"
-            >
-              <Wallet className="h-5 w-5" />
-              <span className="text-xs font-medium">Financeiro</span>
-            </NavLink>
-            <NavLink
-              to="/produtos"
-              className="flex flex-col items-center gap-1 px-3 py-2 text-muted-foreground transition-colors"
-              activeClassName="text-primary"
-            >
-              <Package className="h-5 w-5" />
-              <span className="text-xs font-medium">Produtos</span>
+              <span className="text-[10px] font-medium">Agenda</span>
             </NavLink>
           </>
         )}
 
-        {/* Sair (cliente ou barbeiro) */}
-        {isAuthenticated && (
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              navigate("/");
-            }}
-            className="text-xs font-medium text-muted-foreground px-3 py-2"
+        {/* Área do Usuário (Nome + Logout) */}
+        {!isAuthenticated ? (
+          <NavLink
+            to="/cadastro"
+            className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground transition-colors"
+            activeClassName="text-primary"
           >
-            Sair
-          </button>
+            <User className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Entrar</span>
+          </NavLink>
+        ) : (
+          <div className="flex items-center">
+            {/* Link para o Perfil com o Nome Curto */}
+            <NavLink
+              to={isBarbeiro ? "/perfil/barbeiro" : "/perfil/cliente"}
+              className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground transition-colors border-r border-border/50"
+              activeClassName="text-primary"
+            >
+              <User className="h-5 w-5" />
+              <span className="text-[10px] font-medium truncate max-w-[70px]">
+                {getFirstName(currentUser?.name)}
+              </span>
+            </NavLink>
+
+            {/* Botão de Sair Compacto */}
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate("/");
+              }}
+              className="flex flex-col items-center gap-1 px-4 py-1 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="text-[10px] font-medium">Sair</span>
+            </button>
+          </div>
         )}
       </div>
     </nav>

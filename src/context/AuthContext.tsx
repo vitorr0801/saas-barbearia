@@ -1,72 +1,101 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+"use client"
+
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type Role = "cliente" | "barbeiro";
-
-export interface AuthUser {
-  name: string;
-  phone: string;
-  role: Role;
-}
+export interface AuthUser { id: string; name: string; phone: string; email: string; role: Role; }
 
 interface AuthContextValue {
   currentUser: AuthUser | null;
   role: Role | null;
   isAuthenticated: boolean;
-  login: (user: AuthUser) => void;
-  logout: () => void;
+  isLoading: boolean;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const CURRENT_USER_STORAGE_KEY = "barberpro_current_user";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchUserProfile = useCallback(async (userId: string, authEmail: string) => {
     try {
-      const raw = window.localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-      if (!raw) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, phone, role, email')
+        .eq('id', userId)
+        .maybeSingle();
 
-      const parsed = JSON.parse(raw) as AuthUser;
-      if (parsed && parsed.role && (parsed.role === "cliente" || parsed.role === "barbeiro")) {
-        setCurrentUser(parsed);
+      if (data) {
+        setCurrentUser({
+          id: data.id,
+          name: data.name || "Usuário",
+          phone: data.phone || "",
+          email: data.email || authEmail,
+          role: (data.role as Role) || "cliente",
+        });
+      } else {
+        // Resiliência de Identidade
+        setCurrentUser({ id: userId, name: "Usuário", phone: "", email: authEmail, role: "cliente" });
       }
-    } catch {
-      // Ignore malformed data
-      window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+    } catch (err) {
+      console.error("❌ [Auth_Error]:", err);
+      setCurrentUser(null);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const login = (user: AuthUser) => {
-    setCurrentUser(user);
-    window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
-  };
+  useEffect(() => {
+    // 🛡️ TENTATIVA INICIAL IMEDIATA
+    const checkInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchUserProfile(session.user.id, session.user.email!);
+      } else {
+        setIsLoading(false);
+      }
+    };
 
-  const logout = () => {
-    setCurrentUser(null);
-    window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
-  };
+    checkInitialSession();
 
-  const value = useMemo(
-    () => ({
-      currentUser,
-      role: currentUser?.role ?? null,
-      isAuthenticated: currentUser !== null,
-      login,
-      logout,
-    }),
-    [currentUser],
-  );
+    // 🔔 OUVINTE DE ESTADO (Sem travas de Ref)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`[AUTH_EVENT]: ${event}`);
+      if (session?.user) {
+        await fetchUserProfile(session.user.id, session.user.email!);
+      } else {
+        setCurrentUser(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchUserProfile]);
+
+  const value = useMemo(() => ({
+    currentUser,
+    role: currentUser?.role ?? null,
+    isAuthenticated: !!currentUser,
+    isLoading, // Agora o isLoading é puramente controlado pelas funções
+    logout: async () => {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+    },
+    refreshUser: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) await fetchUserProfile(session.user.id, session.user.email!);
+    }
+  }), [currentUser, isLoading, fetchUserProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 }
-

@@ -79,7 +79,9 @@ export default function Index() {
     
     navigate("/checkout", {
       state: {
+        serviceId: service?.id, // Adicionei o ID
         serviceName: service?.name || "",
+        professionalId: professional?.id, // Adicionei o ID
         professionalName: professional?.name || "",
         date: date?.isToday ? "Hoje" : `${date?.dayName}, ${date?.dayNumber}`,
         time: time?.time || "",
