@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -16,44 +18,42 @@ export default function Checkout() {
   const { currentUser } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("online");
 
-  // Get booking details from navigation state or use defaults
+  // 📦 Capturando os detalhes vindos do Index.tsx
   const bookingDetails = location.state || {
     serviceName: "Corte + Barba",
     professionalName: "Diego",
     date: "Hoje",
     time: "14:30",
     totalPrice: "R$ 80,00",
+    appointmentDate: new Date().toISOString(), // Fallback de segurança
   };
 
   const handleConfirm = async () => {
-    // 1. TRAVA DE SEGURANÇA: Só tenta salvar se o ID do usuário estiver pronto
+    // 1. TRAVA DE SEGURANÇA
     if (!currentUser?.id) {
       toast({
         variant: "destructive",
         title: "Usuário não identificado ⚠️",
-        description: "Faça logout e login novamente para atualizar sua sessão.",
+        description: "Faça login novamente para continuar.",
       });
       return;
     }
 
     // 2. Limpeza do preço (Ex: "R$ 80,00" -> 80.00)
-    const numericPrice = parseFloat(
-      bookingDetails.totalPrice.replace(/[^\d,]/g, "").replace(",", ".")
-    );
+    const numericPrice = typeof bookingDetails.totalPrice === 'string' 
+      ? parseFloat(bookingDetails.totalPrice.replace(/[^\d,]/g, "").replace(",", "."))
+      : bookingDetails.totalPrice;
 
-    // 3. Feedback visual
     toast({
-      title: "Confirmando...",
-      description: "Salvando seu horário na nuvem.",
+      title: "Processando...",
+      description: "Reservando seu horário de elite.",
     });
 
     try {
-      // 4. Inserção no Supabase (Usando apenas 'currentUser')
+      // 🚀 A MANOBRA FINAL: Inserção com a data correta
       const { error } = await supabase.from("appointments").insert([
         {
-          client_id: currentUser.id, // ID vindo do AuthContext
-          
-          // SNAPSHOT: Gravando os dados atuais para o histórico do barbeiro
+          client_id: currentUser.id,
           client_name_static: currentUser.name || "Cliente",
           client_phone_static: currentUser.phone || "Não informado",
           
@@ -61,7 +61,10 @@ export default function Checkout() {
           professional_name: bookingDetails.professionalName,
           price: numericPrice,
           
-          appointment_date: new Date().toISOString(), 
+          // 🔥 CORREÇÃO AQUI: Usamos a data que veio do calendário (Index.tsx)
+          // Em vez de 'new Date()', usamos o 'appointmentDate' que fundimos antes.
+          appointment_date: bookingDetails.appointmentDate, 
+          
           status: "pending",
           payment_method: paymentMethod, 
         },
@@ -75,9 +78,11 @@ export default function Checkout() {
         description: "Seu horário foi reservado com sucesso!",
       });
 
-      navigate("/");
+      // Redireciona para a página de agenda para o usuário ver o novo card
+      navigate("/agendamentos");
 
     } catch (error: any) {
+      console.error("Erro ao salvar:", error);
       toast({
         variant: "destructive",
         title: "Erro no agendamento ❌",
@@ -99,8 +104,8 @@ export default function Checkout() {
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-foreground">Pagamento</h1>
-              <p className="text-xs text-muted-foreground">Finalize sua reserva</p>
+              <h1 className="text-lg font-bold text-foreground italic uppercase tracking-tighter">Finalizar</h1>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Confirme os detalhes</p>
             </div>
           </div>
         </div>
@@ -123,7 +128,7 @@ export default function Checkout() {
         />
 
         {/* Dynamic Content Area */}
-        <div className="min-h-[280px]">
+        <div className="min-h-[280px] animate-in fade-in duration-500">
           {paymentMethod === "online" ? (
             <OnlinePaymentForm />
           ) : (
@@ -133,13 +138,13 @@ export default function Checkout() {
       </div>
 
       {/* Sticky Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent z-50">
         <Button
           onClick={handleConfirm}
-          className="w-full h-14 btn-primary-glow text-lg font-semibold"
+          className="w-full h-14 btn-primary-glow text-lg font-black uppercase italic tracking-tight"
         >
           {paymentMethod === "online"
-            ? `Finalizar Pagamento (${bookingDetails.totalPrice})`
+            ? `Pagar e Agendar (${bookingDetails.totalPrice})`
             : "Confirmar Agendamento"}
         </Button>
       </div>

@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
-// Importações de páginas (Mantidas conforme seu original)
+// Importações de páginas
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import ClientPortal from "./pages/ClientPortal";
@@ -23,12 +23,12 @@ import BarberProfile from "./pages/BarberProfile";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 import MyAppointments from "./pages/MyAppointments";
+import Favorites from "./pages/Favorites"; // 🚀 1. Importando a nova página de Elite
 
 const queryClient = new QueryClient();
 
 /**
  * 🌀 COMPONENTE DE LOADING UNIFICADO
- * Para manter a identidade visual em qualquer transição de rota.
  */
 const LoadingScreen = ({ message = "Autenticando..." }: { message?: string }) => (
   <div className="h-screen w-full flex items-center justify-center bg-background">
@@ -42,7 +42,7 @@ const LoadingScreen = ({ message = "Autenticando..." }: { message?: string }) =>
 );
 
 /**
- * 🛡️ PROTECTED ROUTE
+ * 🛡️ PROTECTED ROUTE (Versão Sincronizada)
  */
 function ProtectedRoute({
   children,
@@ -54,17 +54,15 @@ function ProtectedRoute({
   const { isAuthenticated, role, isLoading } = useAuth();
   const location = useLocation();
 
-  // 🛡️ Enquanto houver dúvida, mostramos o Loading em vez de null
   if (isLoading || (isAuthenticated && !role)) {
-    return <LoadingScreen message="Verificando permissões..." />; 
+    return <LoadingScreen message="Validando permissões..." />; 
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/cadastro" replace state={{ from: location }} />;
   }
 
-  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
-    // Se o cara tenta entrar onde não deve, mandamos para a raiz (onde o HomeRedirect decide o destino dele)
+  if (allowedRoles && !allowedRoles.includes(role as any)) {
     return <Navigate to="/" replace />;
   }
 
@@ -72,19 +70,21 @@ function ProtectedRoute({
 }
 
 /**
- * 🔀 HOME REDIRECT
+ * 🔀 HOME REDIRECT (O Cérebro da Navegação)
  */
 const HomeRedirect = () => {
   const { isAuthenticated, role, isLoading } = useAuth();
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading || (isAuthenticated && !role)) {
+    return <LoadingScreen message="Preparando seu portal..." />;
+  }
 
-  if (!isAuthenticated) return <Landing />;
+  if (!isAuthenticated) {
+    return <Landing />;
+  }
   
-  // Se está logado mas o role ainda não carregou (segurança de milissegundos)
-  if (!role) return <LoadingScreen message="Sincronizando Perfil..." />; 
-
-  return <Navigate to={role === "barbeiro" ? "/dashboard" : "/descobrir"} replace />;
+  const destination = role === "barbeiro" ? "/dashboard" : "/descobrir";
+  return <Navigate to={destination} replace />;
 };
 
 const AppRoutes = () => {
@@ -95,7 +95,7 @@ const AppRoutes = () => {
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/agendar" element={<Index />} />
         
-        {/* 🚀 DICA: Se o ClientPortal precisa do nome do usuário, ele deve ser Protegido */}
+        {/* Portal de Descoberta */}
         <Route 
           path="/descobrir" 
           element={
@@ -118,6 +118,16 @@ const AppRoutes = () => {
         <Route path="/meus-agendamentos" element={<ProtectedRoute allowedRoles={["cliente"]}><MyAppointments /></ProtectedRoute>} />
         <Route path="/perfil/cliente" element={<ProtectedRoute allowedRoles={["cliente"]}><ClientProfile /></ProtectedRoute>} />
         <Route path="/checkout" element={<ProtectedRoute allowedRoles={["cliente"]}><Checkout /></ProtectedRoute>} />
+        
+        {/* ⭐ 2. NOVA ROTA DE FAVORITOS (Otimizada) */}
+        <Route 
+          path="/favoritos" 
+          element={
+            <ProtectedRoute allowedRoles={["cliente", "barbeiro"]}>
+              <Favorites />
+            </ProtectedRoute>
+          } 
+        />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
