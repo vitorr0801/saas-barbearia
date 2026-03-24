@@ -11,85 +11,67 @@ import { useQueryClient } from "@tanstack/react-query";
 interface FavoriteButtonProps {
   targetId: string;
   type: 'shop' | 'barber';
-  initialIsFavorite?: boolean;
+  isFavorite: boolean; 
 }
 
-export function FavoriteButton({ targetId, type, initialIsFavorite = false }: FavoriteButtonProps) {
-  const { currentUser } = useAuth();
+export function FavoriteButton({ targetId, type, isFavorite }: FavoriteButtonProps) {
+  const { currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
-  const [isFavorite, setIsFavorite] = useState(initialIsFavorite);
+  
+  const [active, setActive] = useState(isFavorite);
   const [loading, setLoading] = useState(false);
 
-  // 🛡️ HELPER DE ELITE: Verifica se o ID é um UUID válido do banco ou um Mock
-  const isRealUUID = (id: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(id);
-  };
-
+  // Mantém o estado visual sincronizado com o que a página pai manda
   useEffect(() => {
-    const checkStatus = async () => {
-      // Se não houver usuário ou o ID for um Mock ("mock-1"), não consultamos o banco
-      if (!currentUser || !isRealUUID(targetId)) return;
-
-      try {
-        const { data } = await supabase
-          .from('user_favorites')
-          .select('id')
-          .eq('user_id', currentUser.id)
-          .eq('target_id', targetId)
-          .maybeSingle();
-        
-        if (data) setIsFavorite(true);
-      } catch (error) {
-        console.error("Erro ao checar status do favorito:", error);
-      }
-    };
-    checkStatus();
-  }, [targetId, currentUser]);
+    setActive(isFavorite);
+  }, [isFavorite]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    if (!currentUser) return toast.error("Faça login para favoritar!");
+    e.preventDefault();
 
-    const newState = !isFavorite;
-    
-    // 🎨 UI OPTIMISTIC: Muda a cor na hora para o usuário sentir a fluidez
-    setIsFavorite(newState);
+    if (authLoading || !isAuthenticated || !currentUser) return;
 
-    // 🚀 LÓGICA HÍBRIDA (MOCK VS REAL)
-    if (!isRealUUID(targetId)) {
-      // Se for Mock, apenas simulamos o sucesso visual para você validar o Layout
-      toast.success(newState ? "Favoritado (Modo de Teste)" : "Removido (Modo de Teste)");
-      return;
-    }
+    const nextState = !active;
+    const previousState = active;
 
-    // Se for um ID real (UUID), aí sim vamos para o Supabase
+    // 🚀 OPTIMISTIC UI: Feedback visual instantâneo
+    setActive(nextState);
     setLoading(true);
+
     try {
-      if (newState) {
+      if (nextState) {
         const { error } = await supabase.from('user_favorites').insert({
           user_id: currentUser.id,
           target_id: targetId,
           type: type
         });
         if (error) throw error;
-        toast.success("Adicionado aos favoritos!");
       } else {
         const { error } = await supabase.from('user_favorites')
           .delete()
           .eq('user_id', currentUser.id)
           .eq('target_id', targetId);
         if (error) throw error;
-        toast.info("Removido dos favoritos");
       }
 
-      // Invalida o cache para atualizar a Home e o Header instantaneamente
-      queryClient.invalidateQueries({ queryKey: ["user-favorite-ids", currentUser.id] });
-      
-    } catch (error) {
-      setIsFavorite(!newState); // Reverte o visual se o banco falhar
-      toast.error("Erro ao atualizar favorito no banco");
-      console.error(error);
+      /** * 📡 SINCRONIZAÇÃO DE ELITE (Onde corrigimos o erro):
+       * Usamos as chaves originais que você já tem no ClientPortal e no Header.
+       * O 'await' garante que a interface só "destrave" após o cache ser limpo.
+       */
+      await Promise.all([
+        // Atualiza a lista de IDs (faz o card sumir na FavoritesPage e atualizar na Home)
+        queryClient.invalidateQueries({ queryKey: ["user-favorite-ids", currentUser.id] }),
+        // Atualiza o contador do Header (sem dar conflito)
+        queryClient.invalidateQueries({ queryKey: ["user-favorites-count", currentUser.id] })
+      ]);
+
+      toast.success(nextState ? "Favorito salvo!" : "Removido!");
+
+    } catch (error: any) {
+      setActive(previousState);
+      toast.error("Erro ao sincronizar.");
+      console.error("Erro:", error.message);
     } finally {
       setLoading(false);
     }
@@ -99,14 +81,23 @@ export function FavoriteButton({ targetId, type, initialIsFavorite = false }: Fa
     <button
       onClick={toggleFavorite}
       disabled={loading}
-      className="h-8 w-8 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-md hover:bg-black/60 transition-all active:scale-90 shadow-sm"
+      type="button"
+      className={cn(
+        "group relative h-9 w-9 flex items-center justify-center rounded-xl transition-all active:scale-90 shadow-lg",
+        "bg-[#0a0c12]/60 backdrop-blur-xl border border-white/10 hover:border-primary/50",
+        active && "border-primary/30",
+        loading && "opacity-50 cursor-not-allowed"
+      )}
     >
       <Heart
         className={cn(
-          "h-4 w-4 transition-all",
-          isFavorite ? "fill-red-500 text-red-500" : "text-white"
+          "h-4.5 w-4.5 transition-all duration-300",
+          active ? "fill-red-500 text-red-500 scale-110" : "text-white/70 group-hover:text-white"
         )}
       />
+      {active && (
+        <span className="absolute inset-0 rounded-xl bg-red-500/20 animate-ping pointer-events-none" />
+      )}
     </button>
   );
 }

@@ -5,7 +5,18 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { Calendar, Clock, Scissors, Inbox, ArrowLeft, User, CreditCard, XCircle, AlertCircle, History, CalendarCheck } from "lucide-react";
+import { 
+  Calendar, 
+  Clock, 
+  Scissors, 
+  Inbox, 
+  ArrowLeft, 
+  User, 
+  XCircle, 
+  AlertCircle, 
+  History, 
+  CalendarCheck 
+} from "lucide-react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,19 +27,25 @@ export default function MyAppointments() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // 🛡️ ESTADOS DE CONTROLE
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [aptToCancel, setAptToCancel] = useState<{ id: string, name: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming");
 
-  // 📡 BUSCA DE DADOS
+  // 📡 BUSCA DE DADOS (AGORA COM RELACIONAMENTO DE ELITE)
   const { data: appointments = [], isLoading, refetch } = useQuery({
     queryKey: ["appointments", currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) return [];
+      
       const { data, error } = await supabase
         .from("appointments")
-        .select("*") 
+        .select(`
+          *,
+          profiles!client_id (
+            name,
+            phone
+          )
+        `) // 👈 Buscamos os dados atuais do perfil do cliente
         .eq("client_id", currentUser.id)
         .order("appointment_date", { ascending: true });
 
@@ -38,7 +55,6 @@ export default function MyAppointments() {
     enabled: !!currentUser?.id,
   });
 
-  // 🧠 LÓGICA DE FILTRAGEM (PADRÃO MUNDIAL)
   const { upcoming, history } = useMemo(() => {
     const now = new Date();
     return {
@@ -47,13 +63,12 @@ export default function MyAppointments() {
       ),
       history: appointments.filter((apt: any) => 
         apt.status === 'canceled' || new Date(apt.appointment_date) < now
-      ).reverse() // Histórico mais recente primeiro
+      ).reverse()
     };
   }, [appointments]);
 
   const currentList = activeTab === "upcoming" ? upcoming : history;
 
-  // 🛠️ FUNÇÕES
   const openCancelModal = (id: string, serviceName: string) => {
     setAptToCancel({ id, name: serviceName });
     setIsCancelModalOpen(true);
@@ -83,7 +98,6 @@ export default function MyAppointments() {
 
       <main className="container pt-24 py-8 max-w-4xl space-y-8">
         
-        {/* Header da Seção */}
         <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-left-4 duration-500">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
@@ -99,7 +113,6 @@ export default function MyAppointments() {
             </div>
           </div>
 
-          {/* 📑 SELETOR DE ABAS (TABS) */}
           <div className="flex p-1 bg-secondary/50 rounded-2xl border border-border w-full max-w-sm">
             <button
               onClick={() => setActiveTab("upcoming")}
@@ -160,7 +173,7 @@ export default function MyAppointments() {
                   key={apt.id} 
                   className={cn(
                     "group bg-card border border-border p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all",
-                    isCanceled || isPast ? "opacity-60" : "hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 border-l-4 border-l-primary"
+                    isCanceled || isPast ? "opacity-60 grayscale-[50%]" : "hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 border-l-4 border-l-primary"
                   )}
                 >
                   <div className="flex items-center gap-5">
@@ -178,7 +191,11 @@ export default function MyAppointments() {
                         <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
                           <User className="w-3 h-3" /> {apt.professional_name}
                         </p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
+                        {/* 🛡️ EXIBIÇÃO DO NOME DO CLIENTE (DINÂMICO) */}
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">
+                          Cliente: {apt.profiles?.name || "Perfil Excluído"}
+                        </p>
+                        <p className="text-[10px] font-bold text-muted-foreground/60 uppercase">
                           R$ {apt.price?.toFixed(2)} • {apt.payment_method}
                         </p>
                       </div>

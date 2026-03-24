@@ -1,17 +1,18 @@
 "use client"
 
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/context/AuthContext";
+import React, { useState, useMemo, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/context/AuthContext"
 
-import { Header } from "@/components/Header";
-import { SearchHub } from "@/components/discovery/SearchHub";
-import { ActiveAppointmentCard } from "@/components/discovery/ActiveAppointmentCard";
-import { CategoryNav } from "@/components/discovery/CategoryNav";
-import { FeaturedShops } from "@/components/discovery/FeaturedShops";
-import { FavoriteSection } from "@/components/discovery/FavoriteSection";
+import { Header } from "@/components/Header"
+import { SearchHub } from "@/components/discovery/SearchHub"
+import { ActiveAppointmentCard } from "@/components/discovery/ActiveAppointmentCard"
+import { CategoryNav } from "@/components/discovery/CategoryNav"
+import { FeaturedShops } from "@/components/discovery/FeaturedShops"
+import { FavoriteSection } from "@/components/discovery/FavoriteSection"
+import { Sparkles, ArrowRight } from "lucide-react"
 
 const MOCK_SHOPS = [
   {
@@ -33,27 +34,17 @@ const MOCK_SHOPS = [
     startingPrice: 55,
     categories: ["cabelo"],
     status: "active"
-  },
-  {
-    id: "mock-3",
-    name: "The Gentleman Barber",
-    image: "https://images.unsplash.com/photo-1621605815841-aa33c56b0201?w=800&auto=format&fit=crop&q=60",
-    rating: 4.8,
-    neighborhood: "Lago Sul",
-    startingPrice: 70,
-    categories: ["barba", "toalha quente"],
-    status: "active"
   }
 ];
 
 export default function ClientPortal() {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // 📡 1. BUSCA DE BARBEARIAS GERAIS
-  const { data: realShops = [], isLoading } = useQuery({
+  // 📡 1. BUSCA DE BARBEARIAS
+  const { data: realShops = [], isLoading: shopsLoading } = useQuery({
     queryKey: ["featured-shops-real"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -61,12 +52,29 @@ export default function ClientPortal() {
         .select("*")
         .eq("status", "active");
       if (error) throw error;
-      return data;
+      return data || [];
     },
     staleTime: 1000 * 60 * 5, 
   });
 
-  // 📡 2. BUSCA DE AGENDAMENTOS
+  // 📡 2. BUSCA DE FAVORITOS (Otimizada para persistência)
+  const { data: favoriteIds = [], refetch: refetchFavorites } = useQuery({
+    queryKey: ["user-favorite-ids", currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser?.id) return [];
+      const { data, error } = await supabase
+        .from("user_favorites")
+        .select("target_id")
+        .eq("user_id", currentUser.id)
+        .eq("type", "shop");
+      if (error) throw error;
+      return data.map(f => f.target_id);
+    },
+    enabled: !authLoading && !!currentUser?.id,
+    staleTime: 0, 
+  });
+
+  // 📡 3. BUSCA DE AGENDAMENTOS
   const { data: activeAppointments = [] } = useQuery({
     queryKey: ["active-appointments", currentUser?.id],
     queryFn: async () => {
@@ -79,38 +87,27 @@ export default function ClientPortal() {
         .limit(1);
       return data || [];
     },
-    enabled: !!currentUser?.id,
+    enabled: !authLoading && !!currentUser?.id,
   });
 
-  // 📡 3. BUSCA APENAS DOS IDS FAVORITADOS (Otimização Máxima)
-  const { data: favoriteIds = [] } = useQuery({
-    queryKey: ["user-favorite-ids", currentUser?.id],
-    queryFn: async () => {
-      if (!currentUser?.id) return [];
-      const { data, error } = await supabase
-        .from("user_favorites")
-        .select("target_id")
-        .eq("user_id", currentUser.id)
-        .eq("type", "shop");
-      
-      if (error) throw error;
-      return data.map(f => f.target_id);
-    },
-    enabled: !!currentUser?.id,
-  });
+  // 🔄 SINCRONIZAÇÃO DE SEGURANÇA: Garante que o refresh não "esqueça" os dados
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && currentUser?.id) {
+      refetchFavorites();
+    }
+  }, [authLoading, isAuthenticated, currentUser?.id, refetchFavorites]);
 
-  // 🧬 FUSÃO E FILTRAGEM
-  const allShops = useMemo(() => {
-    return [...realShops, ...MOCK_SHOPS];
-  }, [realShops]);
+  // 🧬 FUSÃO DE DADOS
+  const allShops = useMemo(() => [...realShops, ...MOCK_SHOPS], [realShops]);
 
-  // ⭐ FILTRAGEM DOS FAVORITOS (Cruzando IDs do banco com a lista local)
+  // ⭐ FILTRO DE FAVORITOS
   const favoriteShops = useMemo(() => {
-  // 🛡️ BLINDAGEM: Se favoriteIds vier com erro (não for array), usamos lista vazia
-  const safeIds = Array.isArray(favoriteIds) ? favoriteIds : [];
-  return allShops.filter(shop => safeIds.includes(shop.id));
-}, [allShops, favoriteIds]);
+    if (authLoading || !currentUser) return [];
+    const safeIds = Array.isArray(favoriteIds) ? favoriteIds : [];
+    return allShops.filter(shop => safeIds.includes(shop.id));
+  }, [allShops, favoriteIds, authLoading, currentUser]);
 
+  // 🔍 FILTRAGEM DE BUSCA
   const filteredShops = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return allShops.filter((shop: any) => {
@@ -122,52 +119,88 @@ export default function ClientPortal() {
   }, [allShops, searchQuery, selectedCategory]);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 overflow-x-hidden">
       <Header />
 
-      <div className="container pt-24 py-8 space-y-10">
-        <section className="px-1 animate-in fade-in duration-700">
-          <h2 className="text-2xl font-black tracking-tight text-foreground uppercase italic">
-            Olá, {currentUser?.name?.split(" ")[0] || "Cliente"}!
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 space-y-12">
+        
+        {/* 1. SEÇÃO DE BOAS-VINDAS */}
+        <section className="animate-in fade-in slide-in-from-left-4 duration-1000">
+          <h2 className="text-3xl font-black italic uppercase tracking-tighter text-foreground leading-none">
+            {!authLoading && isAuthenticated && currentUser ? (
+              <>Olá, <span className="text-primary">{currentUser.name?.split(" ")[0]}</span>!</>
+            ) : (
+              <>DOMINE SEU <span className="text-primary">ESTILO.</span></>
+            )}
           </h2>
         </section>
 
-        <section className="animate-in fade-in slide-in-from-top-4 duration-700">
+        {/* 2. HUB DE BUSCA */}
+        <section>
           <SearchHub searchQuery={searchQuery} onSearchChange={setSearchQuery} onUseLocation={() => {}} />
         </section>
 
-        {activeAppointments.length > 0 && (
-          <section className="animate-in fade-in duration-700 delay-100">
+        {/* 3. BANNER PARA VISITANTES */}
+        {!authLoading && !isAuthenticated && (
+          <section className="relative p-8 rounded-[2rem] bg-primary/5 border border-primary/10 overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+              <Sparkles className="w-20 h-20 text-primary" />
+            </div>
+            <div className="relative z-10 max-w-md space-y-4">
+              <h4 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Agende em segundos</h4>
+              <p className="text-xs font-medium text-muted-foreground leading-relaxed">Crie sua conta para salvar favoritos e gerenciar agendamentos.</p>
+              <button onClick={() => navigate("/cadastro")} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-4 transition-all">
+                Começar Experiência Elite <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* 4. AGENDAMENTOS ATIVOS */}
+        {!authLoading && activeAppointments.length > 0 && (
+          <section className="animate-in fade-in duration-700">
+             <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+               Próximo Agendamento
+             </h3>
              <ActiveAppointmentCard appointment={activeAppointments[0]} />
           </section>
         )}
 
-        {/* AGORA VAI APARECER: Mesmo que seja um Mock! */}
-        <FavoriteSection 
-          favorites={favoriteShops} 
-          onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} 
-        />
+        {/* 5. FAVORITOS (Com o Pente Fino aplicado) */}
+        {!authLoading && isAuthenticated && favoriteShops.length > 0 && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <FavoriteSection 
+              favorites={favoriteShops} 
+              favoriteIds={favoriteIds} // 🎯 PASSANDO A VERDADE
+              onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} 
+            />
+          </div>
+        )}
 
-        <section className="animate-in fade-in duration-700 delay-200">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">
-            Categorias
-          </h3>
+        {/* 6. CATEGORIAS */}
+        <section>
           <CategoryNav selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
         </section>
 
-        <section className="animate-in fade-in duration-700 delay-300">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold italic uppercase tracking-tighter text-foreground">
-              Barbearias em Destaque
+        {/* 7. BARBEARIAS EM DESTAQUE */}
+        <section className="animate-in fade-in duration-700">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-foreground">
+              Barbearias de <span className="text-primary">Elite</span>
             </h2>
           </div>
           
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map(i => <div key={i} className="h-48 bg-card animate-pulse rounded-[2rem] border border-border" />)}
+          {shopsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map(i => <div key={i} className="h-64 bg-card/50 animate-pulse rounded-[2.5rem] border border-white/5" />)}
             </div>
           ) : (
-            <FeaturedShops shops={filteredShops} onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} />
+            <FeaturedShops 
+              shops={filteredShops} 
+              favoriteIds={favoriteIds} // 🎯 PASSANDO A VERDADE
+              onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} 
+            />
           )}
         </section>
       </div>

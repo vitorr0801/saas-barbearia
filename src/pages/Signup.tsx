@@ -42,6 +42,7 @@ export default function Signup() {
 
   const [step, setStep] = useState<1 | 2>(1);
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
+  const [isRecovering, setIsRecovering] = useState(false); // 🛡️ NOVO ESTADO DE RECUPERAÇÃO
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [role, setRole] = useState<MaybeRole>(null);
   const [name, setName] = useState("");
@@ -71,11 +72,37 @@ export default function Signup() {
   const isNameValid = name.trim().length >= 3;
   const isWhatsappValid = whatsappDigits.length === 11;
   const isEmailValid = /\S+@\S+\.\S+/.test(email.trim());
+  const isLoginEmailValid = /\S+@\S+\.\S+/.test(loginIdentifier.trim());
   
-  // Validação composta da senha
   const isPasswordSecure = passwordRequirements.every(req => req.test(password));
-  
   const canProceed = !!role && isNameValid && isWhatsappValid && isPasswordSecure && isEmailValid;
+
+  // 🛠️ FUNÇÃO DE RECUPERAÇÃO DE SENHA (PADRÃO MUNDIAL)
+  const handleRecoverPassword = async () => {
+    if (!isLoginEmailValid) {
+      toast.error("Informe um e-mail válido para a recuperação.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const toastId = toast.loading("Preparando link de resgate...");
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(loginIdentifier.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      // Mensagem genérica por segurança (impede mapeamento de e-mails por terceiros)
+      toast.success("Se o e-mail estiver cadastrado, você receberá um link em instantes.", { id: toastId });
+      setIsRecovering(false);
+    } catch (error: any) {
+      toast.error("Ocorreu um erro ao processar sua solicitação.", { id: toastId });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSendCode = async () => {
     if (!canProceed || isSubmitting) return;
@@ -122,16 +149,18 @@ export default function Signup() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       
-      {/* 🔙 BOTÃO DE RETORNO (UX DE ELITE) */}
+      {/* 🔙 BOTÃO DE RETORNO */}
       <div className="absolute top-8 left-8">
         <button 
-          onClick={() => navigate(-1)}
+          onClick={() => isRecovering ? setIsRecovering(false) : navigate(-1)}
           className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
         >
           <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
             <ArrowLeft className="h-5 w-5" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Voltar</span>
+          <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">
+            {isRecovering ? "Cancelar" : "Voltar"}
+          </span>
         </button>
       </div>
 
@@ -208,7 +237,6 @@ export default function Signup() {
                   </button>
                 </div>
 
-                {/* 📊 FORTALEZA DE SENHA: CHECKLIST EM TEMPO REAL */}
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 bg-secondary/50 rounded-2xl border border-border/50">
                   {passwordRequirements.map((req, index) => {
                     const isMet = req.test(password);
@@ -239,29 +267,64 @@ export default function Signup() {
         {authMode === "login" && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase italic leading-none text-primary">LOGIN</h1>
-              <p className="text-[10px] font-black text-muted-foreground mt-2 uppercase tracking-widest">Acesse sua área de trabalho</p>
+              <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase italic leading-none text-primary">
+                {isRecovering ? "RECUPERAR" : "LOGIN"}
+              </h1>
+              <p className="text-[10px] font-black text-muted-foreground mt-2 uppercase tracking-widest">
+                {isRecovering ? "Enviaremos um link de resgate" : "Acesse sua área de trabalho"}
+              </p>
             </div>
             <div className="space-y-4">
               <FormField label="E-mail">
                 <div className="relative group">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input disabled={isSubmitting} placeholder="seu@email.com" value={loginIdentifier} onChange={(e) => setLoginIdentifier(e.target.value)} className="pl-11 h-12 rounded-xl bg-card" />
+                  <Input 
+                    disabled={isSubmitting} 
+                    placeholder="seu@email.com" 
+                    value={loginIdentifier} 
+                    onChange={(e) => setLoginIdentifier(e.target.value)} 
+                    className="pl-11 h-12 rounded-xl bg-card" 
+                  />
                 </div>
               </FormField>
-              <FormField label="Senha">
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input disabled={isSubmitting} type="password" placeholder="Sua senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="pl-11 h-12 rounded-xl bg-card" />
-                </div>
-              </FormField>
+
+              {!isRecovering && (
+                <FormField label="Senha">
+                  <div className="relative group">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input 
+                      disabled={isSubmitting} 
+                      type="password" 
+                      placeholder="Sua senha" 
+                      value={loginPassword} 
+                      onChange={(e) => setLoginPassword(e.target.value)} 
+                      className="pl-11 h-12 rounded-xl bg-card" 
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setIsRecovering(true)}
+                    className="text-[9px] font-black uppercase text-primary/60 hover:text-primary transition-colors text-right w-full block mt-1"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </FormField>
+              )}
             </div>
-            <Button onClick={handleLoginSubmit} disabled={isSubmitting} className="w-full mt-8 h-14 rounded-2xl font-black uppercase tracking-widest italic text-lg shadow-xl shadow-primary/20 active:scale-95">
-              {isSubmitting ? "Autenticando..." : "Entrar no Sistema"}
+
+            <Button 
+              onClick={isRecovering ? handleRecoverPassword : handleLoginSubmit} 
+              disabled={isSubmitting} 
+              className="w-full mt-8 h-14 rounded-2xl font-black uppercase tracking-widest italic text-lg shadow-xl shadow-primary/20 active:scale-95"
+            >
+              {isSubmitting ? "Processando..." : isRecovering ? "Enviar Link de Acesso" : "Entrar no Sistema"}
             </Button>
-            <p className="text-center text-xs text-muted-foreground mt-8 font-bold uppercase tracking-widest">
-              Ainda não é membro? <button onClick={() => setAuthMode("signup")} className="text-primary hover:underline ml-1">CADASTRAR-SE</button>
-            </p>
+
+            <button 
+              onClick={() => isRecovering ? setIsRecovering(false) : setAuthMode("signup")}
+              className="w-full text-center text-xs text-muted-foreground mt-8 font-bold uppercase tracking-widest hover:text-primary transition-colors"
+            >
+              {isRecovering ? "← Voltar para o login" : "Ainda não é membro? CADASTRAR-SE"}
+            </button>
           </div>
         )}
 

@@ -4,207 +4,214 @@ import React, { useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { 
   Menu, X, Scissors, LogOut, User, 
-  LayoutDashboard, Calendar, Search, Heart 
+  LayoutDashboard, Calendar, Search, Heart
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext" 
 import { useQuery } from "@tanstack/react-query" 
 import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils" // Certifique-se de ter essa lib para as classes dinâmicas
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const { currentUser, isAuthenticated, logout, role, isLoading: authLoading } = useAuth()
 
-  /** * 📡 BUSCA DO CONTADOR DE FAVORITOS (Otimização Máxima)
-   * Usamos a mesma Query Key do ClientPortal para sincronia instantânea.
+  // 🚩 LÓGICA DE CONTEXTO: Define se estamos no "Mundo do Cliente"
+  const isClientContext = location.pathname.startsWith("/descobrir") || 
+                          location.pathname.startsWith("/agendar") ||
+                          location.pathname.startsWith("/favoritos") ||
+                          (isAuthenticated && role === 'cliente');
+
+  /** 📡 BUSCA DO STATUS DE FAVORITOS
+   * Usamos 'head: true' para saber se existem favoritos sem pesar no banco.
    */
   const { data: favoritesCount = 0 } = useQuery({
-    queryKey: ["user-favorite-ids", currentUser?.id],
+    queryKey: ["user-favorites-count", currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) return 0;
-      
-      const { error, count } = await supabase
+      const { count, error } = await supabase
         .from("user_favorites")
-        .select("target_id", { count: 'exact', head: true })
-        .eq("user_id", currentUser.id)
-        .eq("type", "shop");
+        .select("*", { count: 'exact', head: true }) 
+        .eq("user_id", currentUser.id);
       
       if (error) return 0;
       return count || 0;
     },
-    // SÓ HABILITA se: o Auth terminou de carregar, temos usuário e ele é cliente
     enabled: !authLoading && !!currentUser?.id && role === 'cliente',
-    staleTime: 1000 * 30, // 30 segundos de cache "fresco"
+    staleTime: 1000 * 60 * 2, 
   });
 
   const displayName = useMemo(() => {
     if (!currentUser?.name) return "Perfil";
-    const names = currentUser.name.trim().split(/\s+/);
-    return names.length > 1 ? `${names[0]} ${names[1]}` : names[0];
+    return currentUser.name.split(" ")[0]; 
   }, [currentUser?.name]);
 
-  const handleLogoClick = () => {
-    const homePath = role === 'barbeiro' ? '/dashboard' : '/descobrir';
-    if (location.pathname === homePath || location.pathname === '/') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleProtectedAction = (e: React.MouseEvent, to: string) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      toast.error("Acesso Restrito", {
+        description: "Crie uma conta para salvar seus agendamentos e favoritos.",
+        action: {
+          label: "Entrar",
+          onClick: () => navigate("/cadastro")
+        },
+      });
+      return;
     }
-    setIsMenuOpen(false);
+    navigate(to);
   };
 
   const handleLogout = async () => {
     await logout();
     setIsMenuOpen(false);
+    navigate("/");
   };
 
-  /**
-   * 🛡️ PREVENT FLICKER: Enquanto o Auth carrega, mostramos um esqueleto minimalista.
-   * Isso evita que o layout "salte" quando o usuário for identificado.
-   */
+  const handleLogoClick = (e: React.MouseEvent) => {
+    const homePath = !isAuthenticated ? "/" : (role === 'barbeiro' ? '/dashboard' : '/descobrir');
+    if (location.pathname === homePath) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    setIsMenuOpen(false);
+  };
+
   if (authLoading) {
-    return (
-      <header className="fixed top-0 left-0 right-0 z-[999] bg-background/80 backdrop-blur-lg border-b border-border h-16 flex items-center px-4">
-        <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 animate-pulse" />
-            <div className="w-24 h-4 bg-muted animate-pulse rounded" />
-          </div>
-          <div className="w-20 h-8 bg-muted animate-pulse rounded-xl" />
-        </div>
-      </header>
-    );
+    return <header className="fixed top-0 left-0 right-0 z-[999] bg-[#0a0c12]/90 backdrop-blur-md border-b border-white/5 h-20" />;
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[999] bg-background/80 backdrop-blur-lg border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-[999] bg-[#0a0c12]/95 backdrop-blur-md border-b border-white/5">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           
-          {/* LOGO */}
+          {/* 1. LOGO */}
           <Link 
-            to="/"
+            to={!isAuthenticated ? "/" : (role === 'barbeiro' ? '/dashboard' : '/descobrir')}
             onClick={handleLogoClick}
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative z-[1000]"
+            className="flex items-center gap-2 group shrink-0 relative z-[1000]"
           >
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:rotate-12 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:rotate-12 transition-transform duration-500">
               <Scissors className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground tracking-tighter">BarberPro</span>
+            <span className="text-xl font-black text-white italic tracking-tighter uppercase leading-none">
+              BARBER<span className="text-primary">PRO</span>
+            </span>
           </Link>
 
-          {/* ÁREA DO USUÁRIO (Desktop) */}
-          <div className="hidden md:flex items-center gap-4">
-            {!isAuthenticated ? (
-              <div className="flex items-center gap-3">
-                <Link to="/cadastro" className="text-sm font-semibold text-muted-foreground hover:text-foreground px-4">Entrar</Link>
-                <Link to="/cadastro" className="px-5 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:shadow-lg transition-all active:scale-95">Começar grátis</Link>
+          {/* 2. NAV CENTRAL */}
+          <div className="hidden lg:flex flex-1 justify-center px-8">
+            {!isClientContext ? (
+              <div className="flex items-center gap-10">
+                {[{ label: "Home", href: "/" }, { label: "Sobre", href: "#problem" }, { label: "Funções", href: "#features" }, { label: "Preços", href: "#pricing" }].map((item) => (
+                  <a key={item.label} href={item.href} className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50 hover:text-primary transition-colors">
+                    {item.label}
+                  </a>
+                ))}
               </div>
             ) : (
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-5 border-r border-border pr-6">
-                  {role === 'barbeiro' ? (
-                    <Link to="/dashboard" className="flex items-center gap-2 text-sm font-bold text-foreground hover:text-primary transition-colors">
-                      <LayoutDashboard className="w-4 h-4" /> Painel
-                    </Link>
-                  ) : (
-                    <>
-                      <Link to="/meus-agendamentos" className="flex items-center gap-2 text-sm font-bold text-foreground hover:text-primary transition-colors">
-                        <Calendar className="w-4 h-4" /> Agenda
-                      </Link>
-
-                      {/* ❤️ FAVORITOS DESKTOP COM BADGE DINÂMICO */}
-                      <Link to="/favoritos" className="flex items-center gap-2 text-sm font-bold text-foreground hover:text-primary transition-colors relative group">
-                        <Heart className="w-4 h-4 group-hover:fill-red-500 group-hover:text-red-500 transition-all" />
-                        Favoritos
-                        {favoritesCount > 0 && (
-                          <span className="absolute -top-2 -right-3 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground animate-in zoom-in duration-300">
-                            {favoritesCount}
-                          </span>
-                        )}
-                      </Link>
-
-                      <Link to="/descobrir" className="flex items-center gap-2 text-sm font-bold text-foreground hover:text-primary transition-colors">
-                        <Search className="w-4 h-4" /> Buscar
-                      </Link>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <Link 
-                    to={role === 'barbeiro' ? '/perfil/barbeiro' : '/perfil/cliente'}
-                    className="flex flex-col text-right group"
-                  >
-                    <span className="text-sm font-bold leading-none group-hover:text-primary transition-colors">
-                      {displayName}
-                    </span>
-                    <span className="text-[10px] font-black text-muted-foreground uppercase mt-1 tracking-widest opacity-70">
-                      {role === 'barbeiro' ? 'Profissional' : 'Cliente'}
-                    </span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="p-2.5 rounded-xl bg-secondary hover:bg-destructive/10 hover:text-destructive transition-all text-muted-foreground"
-                    title="Sair"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="w-full max-w-md relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar barbearia ou serviço..." 
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-primary/40 transition-all placeholder:text-white/20"
+                />
               </div>
             )}
           </div>
 
-          {/* Botão Mobile */}
-          <button
-            className="md:hidden p-2 rounded-xl bg-secondary text-muted-foreground active:scale-95"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* 3. AÇÕES DA DIREITA */}
+          <div className="flex items-center gap-4">
+            
+            {/* BLOCO CLIENTE: Agenda e Favoritos */}
+            {isClientContext && (
+              <div className="hidden md:flex items-center gap-6 mr-2">
+                <button 
+                  onClick={(e) => handleProtectedAction(e, "/meus-agendamentos")}
+                  className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors"
+                >
+                  <Calendar className="w-4 h-4" /> Agenda
+                </button>
+                
+                {/* 🎯 FAVORITOS DE ELITE: Minimalismo puro */}
+                <button 
+                  onClick={(e) => handleProtectedAction(e, "/favoritos")}
+                  className="relative group p-2 rounded-xl hover:bg-white/5 transition-all"
+                >
+                  <Heart 
+                    className={cn(
+                      "w-5 h-5 transition-all duration-300",
+                      isAuthenticated && favoritesCount > 0 
+                        ? "text-red-500 fill-red-500/10" 
+                        : "text-white/40 group-hover:text-white"
+                    )} 
+                  />
+                  {/* PONTO INDICADOR (Sem números) */}
+                  {isAuthenticated && favoritesCount > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-[#0a0c12] animate-in zoom-in" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {!isAuthenticated ? (
+              <div className="flex items-center gap-4 sm:gap-6">
+                <Link to="/cadastro" className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 hover:text-white transition-colors">Acessar</Link>
+                <Button onClick={() => navigate("/cadastro")} className="h-10 px-6 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20">
+                  Criar Conta
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4 sm:gap-6">
+                {role === 'barbeiro' && (
+                  <Link to="/dashboard" className="hidden md:flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors border-r border-white/10 pr-6 mr-2">
+                    <LayoutDashboard className="w-4 h-4" /> Painel
+                  </Link>
+                )}
+                
+                <Link to={role === 'barbeiro' ? '/perfil/barbeiro' : '/perfil/cliente'} className="flex items-center gap-3 group">
+                  <div className="hidden xs:flex flex-col text-right">
+                    <span className="text-xs font-bold text-white group-hover:text-primary transition-colors">{displayName}</span>
+                    <span className="text-[9px] font-black text-primary uppercase opacity-70 tracking-tighter">{role}</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-primary/50 transition-all">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                </Link>
+                <button onClick={handleLogout} className="p-2.5 rounded-xl bg-white/5 hover:bg-destructive/10 hover:text-destructive transition-all">
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <button className="lg:hidden p-2 text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
-        {/* Menu Mobile Dropdown */}
+        {/* 4. MENU MOBILE */}
         {isMenuOpen && (
-          <div className="md:hidden py-6 border-t border-border animate-in slide-in-from-top-4 duration-300">
-            <div className="flex flex-col gap-5">
+          <div className="lg:hidden py-8 border-t border-white/5 animate-in slide-in-from-top-4">
+            <div className="flex flex-col gap-6">
               {!isAuthenticated ? (
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <Link to="/cadastro" onClick={() => setIsMenuOpen(false)} className="py-4 font-bold text-foreground bg-secondary rounded-2xl text-center">Entrar</Link>
-                  <Link to="/cadastro" onClick={() => setIsMenuOpen(false)} className="py-4 bg-primary text-primary-foreground font-bold rounded-2xl text-center">Grátis</Link>
+                <div className="flex flex-col gap-4 px-2">
+                  <Button onClick={() => { navigate("/cadastro"); setIsMenuOpen(false); }} className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl">Entrar / Cadastrar</Button>
+                  <button onClick={() => { navigate("/descobrir"); setIsMenuOpen(false); }} className="p-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 rounded-2xl">Sou Cliente (Agendar)</button>
                 </div>
               ) : (
-                <>
-                  <div className="flex items-center gap-4 p-4 bg-secondary/40 rounded-3xl">
-                    <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center">
-                      <User className="w-6 h-6 text-primary-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-foreground">{displayName}</p>
-                      <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{role}</p>
-                    </div>
-                  </div>
-                  
-                  <nav className="flex flex-col gap-1">
-                    <MobileNavItem icon={<LayoutDashboard />} label="Painel" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
-                    <MobileNavItem icon={<Calendar />} label="Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
-                    
-                    {/* ❤️ FAVORITOS MOBILE */}
-                    <MobileNavItem 
-                      icon={<Heart />} 
-                      label="Meus Favoritos" 
-                      to="/favoritos" 
-                      onClick={() => setIsMenuOpen(false)} 
-                      show={role === 'cliente'} 
-                      badge={favoritesCount}
-                    />
-
-                    <MobileNavItem icon={<Search />} label="Buscar" to="/descobrir" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
-                    <MobileNavItem icon={<User />} label="Perfil" to={role === 'barbeiro' ? '/perfil/barbeiro' : '/perfil/cliente'} onClick={() => setIsMenuOpen(false)} show={true} />
-                  </nav>
-
-                  <button onClick={handleLogout} className="flex items-center justify-center gap-3 p-4 font-bold text-destructive bg-destructive/5 rounded-2xl mt-2 transition-transform active:scale-95">
-                    <LogOut className="w-5 h-5" /> Sair da conta
+                <div className="space-y-2 px-2">
+                  <MobileNavItem icon={<LayoutDashboard />} label="Painel de Controle" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
+                  <MobileNavItem icon={<Calendar />} label="Minha Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
+                  <MobileNavItem icon={<Heart />} label="Favoritos" to="/favoritos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 p-4 font-black uppercase italic text-destructive bg-destructive/5 rounded-2xl mt-4">
+                    <LogOut className="w-5 h-5" /> Sair da Conta
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -214,23 +221,12 @@ export function Header() {
   )
 }
 
-function MobileNavItem({ 
-  icon, label, to, onClick, show, badge 
-}: { 
-  icon: React.ReactElement, label: string, to: string, onClick: () => void, show: boolean, badge?: number 
-}) {
+function MobileNavItem({ icon, label, to, onClick, show }: any) {
   if (!show) return null;
   return (
-    <Link to={to} onClick={onClick} className="flex items-center justify-between p-4 font-bold text-foreground hover:bg-secondary rounded-2xl transition-all">
-      <div className="flex items-center gap-4">
-        <span className="text-primary">{React.cloneElement(icon, { className: "w-5 h-5" })}</span>
-        {label}
-      </div>
-      {badge !== undefined && badge > 0 && (
-        <span className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-full animate-in zoom-in">
-          {badge}
-        </span>
-      )}
+    <Link to={to} onClick={onClick} className="flex items-center gap-4 p-4 font-black uppercase tracking-widest text-[10px] text-white/70 hover:bg-white/5 rounded-2xl transition-all">
+      <span className="text-primary">{React.cloneElement(icon, { className: "w-5 h-5" })}</span>
+      {label}
     </Link>
   );
 }

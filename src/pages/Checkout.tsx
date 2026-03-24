@@ -50,19 +50,18 @@ export default function Checkout() {
     });
 
     try {
-      // 🚀 A MANOBRA FINAL: Inserção com a data correta
+      // 🚀 INSERÇÃO OTIMIZADA (SEM REDUNDÂNCIA)
       const { error } = await supabase.from("appointments").insert([
         {
           client_id: currentUser.id,
-          client_name_static: currentUser.name || "Cliente",
-          client_phone_static: currentUser.phone || "Não informado",
+          // 🛡️ Removemos client_name_static e client_phone_static 
+          // O banco agora usa apenas o ID para integridade total.
           
           service_name: bookingDetails.serviceName,
           professional_name: bookingDetails.professionalName,
           price: numericPrice,
           
-          // 🔥 CORREÇÃO AQUI: Usamos a data que veio do calendário (Index.tsx)
-          // Em vez de 'new Date()', usamos o 'appointmentDate' que fundimos antes.
+          // 🔥 Data vinda do calendário
           appointment_date: bookingDetails.appointmentDate, 
           
           status: "pending",

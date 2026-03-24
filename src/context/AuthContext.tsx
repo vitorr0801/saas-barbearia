@@ -4,7 +4,14 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback, u
 import { supabase } from "@/lib/supabase";
 
 export type Role = "cliente" | "barbeiro";
-export interface AuthUser { id: string; name: string; phone: string; email: string; role: Role; }
+
+export interface AuthUser { 
+  id: string; 
+  name: string; 
+  phone: string; 
+  email: string; 
+  role: Role; 
+}
 
 interface AuthContextValue {
   currentUser: AuthUser | null;
@@ -20,12 +27,21 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const initialized = useRef(false);
+  
+  // 🛡️ Lock para evitar múltiplas inicializações em desenvolvimento (Strict Mode)
+  const isInitializing = useRef(false);
 
-  // 📡 BUSCA DE PERFIL COM FALLBACK DE METADADOS
+  /**
+   * 📡 SINCRONIZAÇÃO DE PERFIL
+   * Otimizado para ser atômico e evitar "flashes" de estado vazio.
+   */
   const fetchUserProfile = useCallback(async (userId: string, authEmail: string, metadata?: any) => {
-    console.log("🔍 [Auth] Buscando perfil na tabela 'profiles'...");
-    
+    // Se não temos ID, liberamos o loading como visitante
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -35,29 +51,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      if (data) {
-        console.log("✅ [Auth] Perfil carregado da tabela.");
-        setCurrentUser({
-          id: data.id,
-          name: data.name || "Usuário",
-          phone: data.phone || "",
-          email: data.email || authEmail,
-          role: (data.role as Role) || "cliente",
-        });
-      } else {
-        // 💎 ESTRATÉGIA DIAMOND: Se a tabela falhar, usamos os metadados do cadastro
-        console.warn("⚠️ [Auth] Tabela profiles vazia. Usando metadados do Auth.");
-        setCurrentUser({
-          id: userId,
-          name: metadata?.name || "Usuário",
-          phone: metadata?.phone || "",
-          email: authEmail,
-          role: (metadata?.role as Role) || "cliente",
-        });
-      }
+      const userData: AuthUser = {
+        id: userId,
+        name: data?.name || metadata?.name || "Mestre do Corte",
+        phone: data?.phone || metadata?.phone || "",
+        email: data?.email || authEmail,
+        role: (data?.role || metadata?.role || "cliente") as Role,
+      };
+
+      setCurrentUser(userData);
+      console.log(`✅ [BarberPro] Perfil ${userData.role} sincronizado.`);
     } catch (err) {
-      console.error("❌ [Auth] Erro na busca. Aplicando fallback de segurança.");
-      // Se der erro no banco (como o RLS travado), libera o usuário com o que temos
+      console.error("❌ [BarberPro] Erro de sync. Aplicando modo de segurança.");
+      // Fallback imediato para não travar o usuário
       setCurrentUser({
         id: userId,
         name: metadata?.name || "Usuário",
@@ -70,22 +76,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * 🚀 ORQUESTRAÇÃO DE AUTENTICAÇÃO
+   * Unificamos a lógica para evitar Race Conditions (corridas de dados).
+   */
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    if (isInitializing.current) return;
+    isInitializing.current = true;
 
-    const safetyTimer = setTimeout(() => {
-      setIsLoading(prev => {
-        if (prev) console.error("🚨 [Auth] TIMEOUT! Destravando interface na marra.");
-        return false;
-      });
-    }, 5000);
+    // Timer de resiliência: Garante que a UI nunca trave por falha de rede
+    const watchdog = setTimeout(() => setIsLoading(false), 5000);
 
-    const initAuth = async () => {
+    const initialize = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        
         if (session?.user) {
-          await fetchUserProfile(session.user.id, session.user.email!, session.user.user_metadata);
+          await fetchUserProfile(
+            session.user.id, 
+            session.user.email!, 
+            session.user.user_metadata
+          );
         } else {
           setIsLoading(false);
         }
@@ -94,11 +105,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initAuth();
+    initialize();
 
+    // 🔄 Listener Global de Auth: O coração da reatividade
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        fetchUserProfile(session.user.id, session.user.email!, session.user.user_metadata);
+      console.log(`🔔 [Auth Event]: ${event}`);
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          fetchUserProfile(session.user.id, session.user.email!, session.user.user_metadata);
+        }
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setIsLoading(false);
@@ -106,37 +122,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      clearTimeout(safetyTimer);
+      clearTimeout(watchdog);
       subscription.unsubscribe();
     };
   }, [fetchUserProfile]);
 
-  const value = useMemo(() => ({
+  const logout = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      // Hard reset para garantir que nenhum cache de memória vaze
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await fetchUserProfile(session.user.id, session.user.email!, session.user.user_metadata);
+    } else {
+      setIsLoading(false);
+    }
+  }, [fetchUserProfile]);
+
+  // 💎 Context Value Memoized: Performance Máxima
+  const contextValue = useMemo(() => ({
     currentUser,
     role: currentUser?.role ?? null,
     isAuthenticated: !!currentUser,
     isLoading,
-    logout: async () => {
-      await supabase.auth.signOut();
-      setCurrentUser(null);
-      window.location.href = "/";
-    },
-    refreshUser: async () => {
-      setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await fetchUserProfile(session.user.id, session.user.email!, session.user.user_metadata);
-      } else {
-        setIsLoading(false);
-      }
-    }
-  }), [currentUser, isLoading, fetchUserProfile]);
+    logout,
+    refreshUser
+  }), [currentUser, isLoading, logout, refreshUser]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
+  }
+  return context;
 }

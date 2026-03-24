@@ -1,114 +1,143 @@
 "use client"
 
-import { TrendingUp, DollarSign, Users, Calendar } from "lucide-react"
+import React from "react"
+import { 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip,
+  ResponsiveContainer as ChartContainer
+} from "recharts"
+import { 
+  TrendingUp, 
+  DollarSign, 
+  Users, 
+  Calendar, 
+  Zap, 
+  ArrowUpRight 
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+
+// 📈 DADOS REAIS PARA O GRÁFICO (Tendência de crescimento BarberPro)
+const chartData = [
+  { month: "Jan", revenue: 18400 },
+  { month: "Fev", revenue: 20200 },
+  { month: "Mar", revenue: 19800 },
+  { month: "Abr", revenue: 23500 },
+  { month: "Mai", revenue: 26100 },
+  { month: "Jun", revenue: 28450 }, // Valor final que bate com o card
+]
 
 const metrics = [
-  {
-    label: "Faturamento mensal",
-    value: "R$ 28.450",
-    change: "+12%",
-    icon: DollarSign
-  },
-  {
-    label: "Ticket médio",
-    value: "R$ 85",
-    change: "+8%",
-    icon: TrendingUp
-  },
-  {
-    label: "Clientes ativos",
-    value: "342",
-    change: "+15%",
-    icon: Users
-  },
-  {
-    label: "Agendamentos/mês",
-    value: "486",
-    change: "+22%",
-    icon: Calendar
-  }
+  { label: "Faturamento Mensal", value: "R$ 28.450", change: "+12.5%", icon: DollarSign },
+  { label: "Ticket Médio", value: "R$ 85,00", change: "+8.2%", icon: TrendingUp },
+  { label: "Clientes Ativos", value: "342", change: "+15%", icon: Users },
+  { label: "Agendamentos/Mês", value: "486", change: "+22%", icon: Calendar }
 ]
 
-const chartData = [
-  { month: "Jan", value: 65 },
-  { month: "Fev", value: 72 },
-  { month: "Mar", value: 68 },
-  { month: "Abr", value: 85 },
-  { month: "Mai", value: 92 },
-  { month: "Jun", value: 100 }
-]
+// Tooltip Personalizado para o Gráfico
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card/95 backdrop-blur-md border border-primary/20 p-4 rounded-xl shadow-2xl">
+        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Faturamento</p>
+        <p className="text-xl font-black italic text-primary">
+          {`R$ ${payload[0].value.toLocaleString('pt-BR')}`}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export function DashboardPreview() {
-  const maxValue = Math.max(...chartData.map(d => d.value))
-
   return (
-    <section className="py-24 px-4" id="dashboard">
-      <div className="max-w-6xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center mb-16">
-          <span className="text-primary font-medium text-sm uppercase tracking-wider">
-            Dashboard
-          </span>
-          <h2 className="text-3xl md:text-4xl font-bold mt-4 mb-6 text-balance">
-            Métricas que impulsionam seu lucro
+    <section className="py-24 px-4 bg-background relative overflow-hidden" id="dashboard">
+      {/* Glow de fundo */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="max-w-6xl mx-auto relative z-10">
+        {/* Header da Seção */}
+        <div className="text-center mb-20 space-y-4">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Zap className="w-4 h-4 text-primary fill-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Inteligência de Negócio</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground leading-[0.9]">
+            MÉTRICAS QUE <br />
+            <span className="text-primary">GERAM LUCRO REAL.</span>
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Acompanhe em tempo real todos os números importantes do seu negócio
-          </p>
         </div>
 
-        {/* Dashboard Mockup */}
-        <div className="relative">
-          {/* Glow effect */}
-          <div className="absolute inset-0 bg-primary/5 rounded-3xl blur-3xl" />
+        {/* Mockup do Dashboard */}
+        <div className="relative bg-card/50 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-6 md:p-10 shadow-2xl overflow-hidden">
           
-          <div className="relative bg-card border border-border rounded-2xl p-6 md:p-8 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Visão geral</h3>
-                <p className="text-sm text-muted-foreground">Últimos 30 dias</p>
+          {/* Header Interno do App */}
+          <div className="flex items-center justify-between mb-12 border-b border-white/5 pb-8">
+            <div className="flex items-center gap-4">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-destructive/20" />
+                <div className="w-3 h-3 rounded-full bg-primary/20" />
+                <div className="w-3 h-3 rounded-full bg-emerald-500/20" />
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-sm font-medium">
-                <TrendingUp className="w-4 h-4" />
-                <span>+18% vs mês anterior</span>
-              </div>
+              <h3 className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                BarberPro OS v3.0 • Live Dashboard
+              </h3>
             </div>
+            <div className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest">
+              +18.4% vs mês anterior
+            </div>
+          </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {metrics.map((metric, index) => (
-                <div
-                  key={index}
-                  className="p-4 rounded-xl bg-background border border-border"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <metric.icon className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-xs text-primary font-medium">{metric.change}</span>
+          {/* Cards de Métricas */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {metrics.map((m, i) => (
+              <div key={i} className="p-6 rounded-3xl bg-background/40 border border-white/5 group hover:border-primary/30 transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-2 rounded-xl bg-secondary/50 text-muted-foreground group-hover:text-primary transition-colors">
+                    <m.icon className="w-4 h-4" />
                   </div>
-                  <p className="text-2xl font-bold text-foreground">{metric.value}</p>
-                  <p className="text-sm text-muted-foreground">{metric.label}</p>
+                  <span className="text-[10px] text-emerald-500 font-bold">{m.change}</span>
                 </div>
-              ))}
-            </div>
-
-            {/* Chart */}
-            <div className="p-6 rounded-xl bg-background border border-border">
-              <h4 className="text-sm font-medium text-foreground mb-6">Crescimento mensal</h4>
-              <div className="flex items-end justify-between gap-2 h-40">
-                {chartData.map((data, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full relative flex-1 flex items-end">
-                      <div
-                        className="w-full bg-primary/80 rounded-t-md transition-all duration-500 hover:bg-primary"
-                        style={{ height: `${(data.value / maxValue) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground">{data.month}</span>
-                  </div>
-                ))}
+                <p className="text-2xl font-black italic tracking-tighter text-foreground">{m.value}</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60 mt-1">{m.label}</p>
               </div>
-            </div>
+            ))}
+          </div>
+
+          {/* ÁREA DO GRÁFICO (Populado e Vibrante) */}
+          <div className="p-8 rounded-[2rem] bg-background/30 border border-white/5 h-[400px]">
+            <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-8">Performance de Faturamento</h4>
+            <ResponsiveContainer width="100%" height="90%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#a8aabc', fontSize: 10, fontWeight: 'bold'}}
+                />
+                <YAxis hide />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#f59e0b" 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorRevenue)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
