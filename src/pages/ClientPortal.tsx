@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/context/AuthContext"
+import { toast } from "sonner"
 
 import { Header } from "@/components/Header"
 import { SearchHub } from "@/components/discovery/SearchHub"
@@ -12,7 +13,7 @@ import { ActiveAppointmentCard } from "@/components/discovery/ActiveAppointmentC
 import { CategoryNav } from "@/components/discovery/CategoryNav"
 import { FeaturedShops } from "@/components/discovery/FeaturedShops"
 import { FavoriteSection } from "@/components/discovery/FavoriteSection"
-import { Sparkles, ArrowRight } from "lucide-react"
+import { Sparkles, ArrowRight, ShieldAlert } from "lucide-react"
 
 const MOCK_SHOPS = [
   {
@@ -43,7 +44,7 @@ export default function ClientPortal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // 📡 1. BUSCA DE BARBEARIAS
+  // 📡 1. BUSCA DE BARBEARIAS (Sempre ativa para Guest Mode)
   const { data: realShops = [], isLoading: shopsLoading } = useQuery({
     queryKey: ["featured-shops-real"],
     queryFn: async () => {
@@ -57,7 +58,7 @@ export default function ClientPortal() {
     staleTime: 1000 * 60 * 5, 
   });
 
-  // 📡 2. BUSCA DE FAVORITOS (Otimizada para persistência)
+  // 📡 2. BUSCA DE FAVORITOS (Inativa para Guest)
   const { data: favoriteIds = [], refetch: refetchFavorites } = useQuery({
     queryKey: ["user-favorite-ids", currentUser?.id],
     queryFn: async () => {
@@ -70,11 +71,10 @@ export default function ClientPortal() {
       if (error) throw error;
       return data.map(f => f.target_id);
     },
-    enabled: !authLoading && !!currentUser?.id,
-    staleTime: 0, 
+    enabled: !authLoading && isAuthenticated && !!currentUser?.id,
   });
 
-  // 📡 3. BUSCA DE AGENDAMENTOS
+  // 📡 3. BUSCA DE AGENDAMENTOS (Inativa para Guest)
   const { data: activeAppointments = [] } = useQuery({
     queryKey: ["active-appointments", currentUser?.id],
     queryFn: async () => {
@@ -87,27 +87,41 @@ export default function ClientPortal() {
         .limit(1);
       return data || [];
     },
-    enabled: !authLoading && !!currentUser?.id,
+    enabled: !authLoading && isAuthenticated && !!currentUser?.id,
   });
 
-  // 🔄 SINCRONIZAÇÃO DE SEGURANÇA: Garante que o refresh não "esqueça" os dados
+  // 🔄 SINCRONIZAÇÃO DE SEGURANÇA
   useEffect(() => {
     if (!authLoading && isAuthenticated && currentUser?.id) {
       refetchFavorites();
     }
   }, [authLoading, isAuthenticated, currentUser?.id, refetchFavorites]);
 
-  // 🧬 FUSÃO DE DADOS
+  // 🛡️ INTERCEPTADOR DE AÇÕES (UX de Elite)
+  const handleProtectedAction = (shopId: string) => {
+    if (!isAuthenticated) {
+      toast.info("Acesso Restrito", {
+        icon: <ShieldAlert className="w-5 h-5 text-primary" />,
+        description: "Você precisa de uma conta BarberPro para realizar agendamentos e salvar favoritos.",
+        action: {
+          label: "Criar Conta Grátis",
+          onClick: () => navigate("/cadastro")
+        },
+      });
+      return;
+    }
+    navigate(`/agendar?shop=${shopId}`);
+  };
+
+  // 🧬 FUSÃO E FILTRAGEM
   const allShops = useMemo(() => [...realShops, ...MOCK_SHOPS], [realShops]);
 
-  // ⭐ FILTRO DE FAVORITOS
   const favoriteShops = useMemo(() => {
-    if (authLoading || !currentUser) return [];
+    if (!isAuthenticated || !currentUser) return [];
     const safeIds = Array.isArray(favoriteIds) ? favoriteIds : [];
     return allShops.filter(shop => safeIds.includes(shop.id));
-  }, [allShops, favoriteIds, authLoading, currentUser]);
+  }, [allShops, favoriteIds, currentUser, isAuthenticated]);
 
-  // 🔍 FILTRAGEM DE BUSCA
   const filteredShops = useMemo(() => {
     const query = searchQuery.toLowerCase();
     return allShops.filter((shop: any) => {
@@ -124,15 +138,20 @@ export default function ClientPortal() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 space-y-12">
         
-        {/* 1. SEÇÃO DE BOAS-VINDAS */}
+        {/* 1. SEÇÃO DE BOAS-VINDAS DINÂMICA */}
         <section className="animate-in fade-in slide-in-from-left-4 duration-1000">
           <h2 className="text-3xl font-black italic uppercase tracking-tighter text-foreground leading-none">
-            {!authLoading && isAuthenticated && currentUser ? (
+            {isAuthenticated && currentUser ? (
               <>Olá, <span className="text-primary">{currentUser.name?.split(" ")[0]}</span>!</>
             ) : (
-              <>DOMINE SEU <span className="text-primary">ESTILO.</span></>
+              <>DESCUBRA O <span className="text-primary">MELHOR DA BARBEARIA.</span></>
             )}
           </h2>
+          {!isAuthenticated && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mt-3 opacity-60">
+              Explorando como convidado
+            </p>
+          )}
         </section>
 
         {/* 2. HUB DE BUSCA */}
@@ -140,24 +159,32 @@ export default function ClientPortal() {
           <SearchHub searchQuery={searchQuery} onSearchChange={setSearchQuery} onUseLocation={() => {}} />
         </section>
 
-        {/* 3. BANNER PARA VISITANTES */}
-        {!authLoading && !isAuthenticated && (
-          <section className="relative p-8 rounded-[2rem] bg-primary/5 border border-primary/10 overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-              <Sparkles className="w-20 h-20 text-primary" />
+        {/* 3. BANNER DE CONVERSÃO PARA CONVIDADOS */}
+        {!isAuthenticated && !authLoading && (
+          <section className="relative p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+              <Sparkles className="w-24 h-24 text-primary" />
             </div>
-            <div className="relative z-10 max-w-md space-y-4">
-              <h4 className="text-xl font-black italic uppercase tracking-tighter text-foreground">Agende em segundos</h4>
-              <p className="text-xs font-medium text-muted-foreground leading-relaxed">Crie sua conta para salvar favoritos e gerenciar agendamentos.</p>
-              <button onClick={() => navigate("/cadastro")} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:gap-4 transition-all">
-                Começar Experiência Elite <ArrowRight className="w-4 h-4" />
+            <div className="relative z-10 max-w-md space-y-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/20 text-[9px] font-black uppercase tracking-widest text-primary">
+                Experiência Elite
+              </div>
+              <h4 className="text-2xl font-black italic uppercase tracking-tighter text-foreground">Sua jornada começa aqui</h4>
+              <p className="text-sm font-medium text-muted-foreground leading-relaxed">
+                Junte-se a milhares de homens que gerenciam seu estilo com agilidade. Salve favoritos e agende em segundos.
+              </p>
+              <button 
+                onClick={() => navigate("/cadastro")} 
+                className="h-12 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[11px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+              >
+                Criar Minha Conta Agora <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </section>
         )}
 
-        {/* 4. AGENDAMENTOS ATIVOS */}
-        {!authLoading && activeAppointments.length > 0 && (
+        {/* 4. AGENDAMENTOS ATIVOS (Somente Logados) */}
+        {isAuthenticated && activeAppointments.length > 0 && (
           <section className="animate-in fade-in duration-700">
              <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -167,13 +194,13 @@ export default function ClientPortal() {
           </section>
         )}
 
-        {/* 5. FAVORITOS (Com o Pente Fino aplicado) */}
-        {!authLoading && isAuthenticated && favoriteShops.length > 0 && (
+        {/* 5. FAVORITOS (Somente Logados) */}
+        {isAuthenticated && favoriteShops.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <FavoriteSection 
               favorites={favoriteShops} 
-              favoriteIds={favoriteIds} // 🎯 PASSANDO A VERDADE
-              onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} 
+              favoriteIds={favoriteIds} 
+              onSelectShop={handleProtectedAction} 
             />
           </div>
         )}
@@ -198,8 +225,8 @@ export default function ClientPortal() {
           ) : (
             <FeaturedShops 
               shops={filteredShops} 
-              favoriteIds={favoriteIds} // 🎯 PASSANDO A VERDADE
-              onSelectShop={(id) => navigate(`/agendar?shop=${id}`)} 
+              favoriteIds={favoriteIds} 
+              onSelectShop={handleProtectedAction} 
             />
           )}
         </section>

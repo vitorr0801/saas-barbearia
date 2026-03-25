@@ -4,14 +4,14 @@ import React, { useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { 
   Menu, X, Scissors, LogOut, User, 
-  LayoutDashboard, Calendar, Search, Heart
+  LayoutDashboard, Calendar, Search, Heart, UserCircle
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext" 
 import { useQuery } from "@tanstack/react-query" 
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils" // Certifique-se de ter essa lib para as classes dinâmicas
+import { cn } from "@/lib/utils"
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -19,15 +19,15 @@ export function Header() {
   const navigate = useNavigate()
   const { currentUser, isAuthenticated, logout, role, isLoading: authLoading } = useAuth()
 
-  // 🚩 LÓGICA DE CONTEXTO: Define se estamos no "Mundo do Cliente"
-  const isClientContext = location.pathname.startsWith("/descobrir") || 
+  // 🚩 DEFINIÇÃO DE CONTEXTOS
+  const isDiscoveryPage = location.pathname === "/descobrir";
+  
+  const isClientContext = isDiscoveryPage || 
                           location.pathname.startsWith("/agendar") ||
                           location.pathname.startsWith("/favoritos") ||
                           (isAuthenticated && role === 'cliente');
 
-  /** 📡 BUSCA DO STATUS DE FAVORITOS
-   * Usamos 'head: true' para saber se existem favoritos sem pesar no banco.
-   */
+  /** 📡 BUSCA DO STATUS DE FAVORITOS (Blindado para logados) */
   const { data: favoritesCount = 0 } = useQuery({
     queryKey: ["user-favorites-count", currentUser?.id],
     queryFn: async () => {
@@ -40,7 +40,7 @@ export function Header() {
       if (error) return 0;
       return count || 0;
     },
-    enabled: !authLoading && !!currentUser?.id && role === 'cliente',
+    enabled: !authLoading && !!currentUser?.id && role === 'cliente' && isAuthenticated,
     staleTime: 1000 * 60 * 2, 
   });
 
@@ -52,11 +52,11 @@ export function Header() {
   const handleProtectedAction = (e: React.MouseEvent, to: string) => {
     if (!isAuthenticated) {
       e.preventDefault();
-      toast.error("Acesso Restrito", {
-        description: "Crie uma conta para salvar seus agendamentos e favoritos.",
+      toast.info("Ação Necessária", {
+        description: "Entre ou crie sua conta para acessar estas funcionalidades.",
         action: {
           label: "Entrar",
-          onClick: () => navigate("/cadastro")
+          onClick: () => navigate("/cadastro?role=cliente")
         },
       });
       return;
@@ -127,30 +127,14 @@ export function Header() {
           {/* 3. AÇÕES DA DIREITA */}
           <div className="flex items-center gap-4">
             
-            {/* BLOCO CLIENTE: Agenda e Favoritos */}
+            {/* Atalhos do Cliente */}
             {isClientContext && (
               <div className="hidden md:flex items-center gap-6 mr-2">
-                <button 
-                  onClick={(e) => handleProtectedAction(e, "/meus-agendamentos")}
-                  className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors"
-                >
+                <button onClick={(e) => handleProtectedAction(e, "/meus-agendamentos")} className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors">
                   <Calendar className="w-4 h-4" /> Agenda
                 </button>
-                
-                {/* 🎯 FAVORITOS DE ELITE: Minimalismo puro */}
-                <button 
-                  onClick={(e) => handleProtectedAction(e, "/favoritos")}
-                  className="relative group p-2 rounded-xl hover:bg-white/5 transition-all"
-                >
-                  <Heart 
-                    className={cn(
-                      "w-5 h-5 transition-all duration-300",
-                      isAuthenticated && favoritesCount > 0 
-                        ? "text-red-500 fill-red-500/10" 
-                        : "text-white/40 group-hover:text-white"
-                    )} 
-                  />
-                  {/* PONTO INDICADOR (Sem números) */}
+                <button onClick={(e) => handleProtectedAction(e, "/favoritos")} className="relative group p-2 rounded-xl hover:bg-white/5 transition-all">
+                  <Heart className={cn("w-5 h-5 transition-all duration-300", isAuthenticated && favoritesCount > 0 ? "text-red-500 fill-red-500/10" : "text-white/40 group-hover:text-white")} />
                   {isAuthenticated && favoritesCount > 0 && (
                     <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-[#0a0c12] animate-in zoom-in" />
                   )}
@@ -159,27 +143,50 @@ export function Header() {
             )}
 
             {!isAuthenticated ? (
-              <div className="flex items-center gap-4 sm:gap-6">
-                <Link to="/cadastro" className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 hover:text-white transition-colors">Acessar</Link>
-                <Button onClick={() => navigate("/cadastro")} className="h-10 px-6 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20">
-                  Criar Conta
-                </Button>
+              <div className="flex items-center gap-3">
+                {isDiscoveryPage ? (
+                  /* PORTAL DO CLIENTE: Entrar */
+                  <Button 
+                    onClick={() => navigate("/cadastro?role=cliente")} 
+                    variant="outline"
+                    className="h-10 px-8 bg-white/5 border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-white/10 transition-all active:scale-95 shadow-sm"
+                  >
+                    Entrar
+                  </Button>
+                ) : (
+                  /* 💎 LANDING PAGE: Limpeza e Foco */
+                  <>
+                    <button 
+                      onClick={() => navigate("/descobrir")}
+                      className="hidden sm:flex h-10 px-5 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all active:scale-95"
+                    >
+                      Sou Cliente
+                    </button>
+                    {/* Botão Acessar Unificado: Agora é o único botão primário no Header deslogado */}
+                    <Button 
+                      onClick={() => navigate("/cadastro?role=barbeiro")} 
+                      className="h-10 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                    >
+                      Acessar
+                    </Button>
+                  </>
+                )}
               </div>
             ) : (
+              /* ESTADO LOGADO (Sem alterações para evitar bugs) */
               <div className="flex items-center gap-4 sm:gap-6">
                 {role === 'barbeiro' && (
                   <Link to="/dashboard" className="hidden md:flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors border-r border-white/10 pr-6 mr-2">
                     <LayoutDashboard className="w-4 h-4" /> Painel
                   </Link>
                 )}
-                
                 <Link to={role === 'barbeiro' ? '/perfil/barbeiro' : '/perfil/cliente'} className="flex items-center gap-3 group">
                   <div className="hidden xs:flex flex-col text-right">
                     <span className="text-xs font-bold text-white group-hover:text-primary transition-colors">{displayName}</span>
                     <span className="text-[9px] font-black text-primary uppercase opacity-70 tracking-tighter">{role}</span>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-primary/50 transition-all">
-                    <User className="w-5 h-5 text-white" />
+                    <UserCircle className="w-6 h-6 text-white" />
                   </div>
                 </Link>
                 <button onClick={handleLogout} className="p-2.5 rounded-xl bg-white/5 hover:bg-destructive/10 hover:text-destructive transition-all">
@@ -194,22 +201,31 @@ export function Header() {
           </div>
         </div>
 
-        {/* 4. MENU MOBILE */}
+        {/* MENU MOBILE ADAPTADO */}
         {isMenuOpen && (
           <div className="lg:hidden py-8 border-t border-white/5 animate-in slide-in-from-top-4">
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 px-2">
               {!isAuthenticated ? (
-                <div className="flex flex-col gap-4 px-2">
-                  <Button onClick={() => { navigate("/cadastro"); setIsMenuOpen(false); }} className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl">Entrar / Cadastrar</Button>
-                  <button onClick={() => { navigate("/descobrir"); setIsMenuOpen(false); }} className="p-4 text-[10px] font-black uppercase tracking-widest text-primary bg-primary/5 rounded-2xl">Sou Cliente (Agendar)</button>
-                </div>
+                <>
+                  <Button 
+                    onClick={() => { navigate(isDiscoveryPage ? "/cadastro?role=cliente" : "/cadastro?role=barbeiro"); setIsMenuOpen(false); }} 
+                    className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl"
+                  >
+                    {isDiscoveryPage ? "Entrar na Conta" : "Acessar Sistema"}
+                  </Button>
+                  {!isDiscoveryPage && (
+                    <button onClick={() => { navigate("/descobrir"); setIsMenuOpen(false); }} className="h-14 border border-white/10 bg-white/5 text-[11px] font-black uppercase tracking-widest text-white rounded-2xl">
+                      Explorar como Cliente
+                    </button>
+                  )}
+                </>
               ) : (
-                <div className="space-y-2 px-2">
-                  <MobileNavItem icon={<LayoutDashboard />} label="Painel de Controle" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
+                <div className="space-y-2">
+                  <MobileNavItem icon={<LayoutDashboard />} label="Painel Administrativo" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
                   <MobileNavItem icon={<Calendar />} label="Minha Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <MobileNavItem icon={<Heart />} label="Favoritos" to="/favoritos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 p-4 font-black uppercase italic text-destructive bg-destructive/5 rounded-2xl mt-4">
-                    <LogOut className="w-5 h-5" /> Sair da Conta
+                    <LogOut className="w-5 h-5" /> Sair do BarberPro
                   </button>
                 </div>
               )}
