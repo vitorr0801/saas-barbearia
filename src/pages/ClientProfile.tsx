@@ -14,6 +14,20 @@ import {
   CheckCircle2, Circle, Trash2, UserX, Info 
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { z } from "zod"
+
+const profileSchema = z.object({
+  name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres."),
+  whatsapp: z.string().transform((value) => value.replace(/\D/g, "")).refine((value) => value.length === 11, {
+    message: "WhatsApp deve conter 11 digitos.",
+  }),
+  cpf: z
+    .string()
+    .transform((value) => value.replace(/\D/g, ""))
+    .refine((value) => value.length === 0 || value.length === 11, {
+      message: "CPF deve conter 11 digitos.",
+    }),
+})
 
 export default function ClientProfile() {
   const { currentUser, isLoading, refreshUser, logout } = useAuth();
@@ -46,7 +60,7 @@ export default function ClientProfile() {
       setData({
         name: currentUser.name || "",
         whatsapp: currentUser.phone || "",
-        cpf: "", 
+        cpf: currentUser.cpf || "",
         email: currentUser.email || "",
       });
     }
@@ -70,10 +84,22 @@ export default function ClientProfile() {
 
   const handleSave = async () => {
     if (!currentUser?.id) return;
+    const parsed = profileSchema.safeParse(data);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || "Dados invalidos.");
+      return;
+    }
     setIsSaving(true);
     const toastId = toast.loading("Salvando alterações...");
     try {
-      const { error } = await supabase.from('profiles').update({ name: data.name, phone: data.whatsapp.replace(/\D/g, "") }).eq('id', currentUser.id);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: parsed.data.name,
+          phone: parsed.data.whatsapp,
+          cpf: parsed.data.cpf || null,
+        })
+        .eq('id', currentUser.id);
       if (error) throw error;
       await refreshUser();
       toast.success("Perfil atualizado!", { id: toastId });

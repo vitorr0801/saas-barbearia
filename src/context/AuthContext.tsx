@@ -9,6 +9,7 @@ export interface AuthUser {
   id: string; 
   name: string; 
   phone: string; 
+  cpf: string;
   email: string; 
   role: Role; 
 }
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, phone, role, email')
+        .select('id, name, phone, cpf, role, email')
         .eq('id', userId)
         .maybeSingle();
 
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         name: data?.name || metadata?.name || "Mestre do Corte",
         phone: data?.phone || metadata?.phone || "",
+        cpf: data?.cpf || "",
         email: data?.email || authEmail,
         role: (data?.role || metadata?.role || "cliente") as Role,
       };
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userId,
         name: metadata?.name || "Usuário",
         phone: metadata?.phone || "",
+        cpf: "",
         email: authEmail,
         role: (metadata?.role as Role) || "cliente",
       });

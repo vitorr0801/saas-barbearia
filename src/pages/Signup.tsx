@@ -60,6 +60,8 @@ export default function Signup() {
   const [isRecovering, setIsRecovering] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [role, setRole] = useState<MaybeRole>(roleParam);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [isDuplicateEmailError, setIsDuplicateEmailError] = useState(false);
   
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -145,9 +147,11 @@ export default function Signup() {
   const handleSendCode = async () => {
     if (!canProceed || isSubmitting) return;
     setIsSubmitting(true);
+    setSignupError(null);
+    setIsDuplicateEmailError(false);
     const toastId = toast.loading("Criando sua conta...");
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
@@ -155,10 +159,17 @@ export default function Signup() {
         },
       });
       if (error) throw error;
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        throw new Error("Este e-mail já está cadastrado. Por favor, faça login.");
+      }
       toast.success("Sucesso! Ative seu e-mail.", { id: toastId });
       setStep(2);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta", { id: toastId });
+      const message = error?.message || "Erro ao criar conta";
+      const isDuplicateEmail = message.includes("já está cadastrado");
+      setSignupError(message);
+      setIsDuplicateEmailError(isDuplicateEmail);
+      toast.error(message, { id: toastId });
       setIsSubmitting(false);
     }
   };
@@ -326,6 +337,23 @@ export default function Signup() {
             <Button onClick={handleSendCode} disabled={!canProceed || isSubmitting} className="w-full mt-8 h-14 rounded-2xl font-black uppercase tracking-widest italic text-lg shadow-xl shadow-primary/20 active:scale-95 transition-all">
               {isSubmitting ? "Processando..." : "Finalizar Cadastro"}
             </Button>
+            {signupError && (
+              <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-center">
+                <p className="text-xs font-bold text-destructive">{signupError}</p>
+                {isDuplicateEmailError && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("login");
+                      setIsRecovering(false);
+                    }}
+                    className="mt-2 text-[11px] font-black uppercase tracking-widest text-primary hover:underline"
+                  >
+                    Fazer Login
+                  </button>
+                )}
+              </div>
+            )}
 
             <p className="text-center text-xs text-muted-foreground mt-8 font-bold uppercase tracking-widest">
               Já tem conta? <button onClick={() => setAuthMode("login")} className="text-primary hover:underline ml-1">FAZER LOGIN</button>

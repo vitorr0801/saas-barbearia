@@ -22,7 +22,12 @@ export function ClientPersonalInfo({ isEditing, data, onChange }: ClientPersonal
   }, [isEditing]);
 
   const handleChange = (field: string, value: string) => {
-    onChange(field, value);
+    const normalizedValue =
+      field === "cpf" || field === "whatsapp"
+        ? value.replace(/\D/g, "").slice(0, 11)
+        : value;
+
+    onChange(field, normalizedValue);
     setSavedFields(prev => new Set(prev).add(field));
     setTimeout(() => {
       setSavedFields(prev => {
@@ -62,6 +67,7 @@ export function ClientPersonalInfo({ isEditing, data, onChange }: ClientPersonal
                 type={type}
                 value={value}
                 readOnly={!isEditing}
+                maxLength={key === "cpf" || key === "whatsapp" ? 11 : undefined}
                 onChange={(e) => handleChange(key, e.target.value)}
                 className={`bg-secondary/50 border-border text-foreground transition-all ${
                   isEditing

@@ -105,7 +105,7 @@ export default function ClientPortal() {
         description: "Você precisa de uma conta BarberPro para realizar agendamentos e salvar favoritos.",
         action: {
           label: "Criar Conta Grátis",
-          onClick: () => navigate("/cadastro")
+          onClick: () => navigate("/cadastro?role=cliente&mode=signup")
         },
       });
       return;
@@ -174,7 +174,7 @@ export default function ClientPortal() {
                 Junte-se a milhares de homens que gerenciam seu estilo com agilidade. Salve favoritos e agende em segundos.
               </p>
               <button 
-                onClick={() => navigate("/cadastro")} 
+                onClick={() => navigate("/cadastro?role=cliente&mode=signup")} 
                 className="h-12 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[11px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all flex items-center gap-2"
               >
                 Criar Minha Conta Agora <ArrowRight className="w-4 h-4" />
