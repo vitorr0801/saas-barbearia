@@ -12,15 +12,17 @@ const data = [
 
 export function RevenueChart() {
   return (
-    <div className="card-premium p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="dash-card">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Visão Semanal</h3>
-          <p className="text-sm text-muted-foreground">Faturamento dos últimos 7 dias</p>
+          <h3 className="text-base font-black uppercase italic tracking-tight text-foreground">Visão Semanal</h3>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+            Faturamento dos últimos 7 dias
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-foreground">R$ 8.800</p>
-          <p className="text-sm text-success">+12% vs semana anterior</p>
+          <p className="text-xl font-bold text-foreground">R$ 8.800</p>
+          <p className="text-xs font-medium text-success">+12% vs semana anterior</p>
         </div>
       </div>
       
@@ -49,8 +51,7 @@ export function RevenueChart() {
               contentStyle={{
                 backgroundColor: 'hsl(217 33% 17%)',
                 border: '1px solid hsl(217 33% 25%)',
-                borderRadius: '8px',
-                boxShadow: '0 4px 24px -4px hsl(222 47% 5% / 0.5)',
+                borderRadius: '12px',
               }}
               labelStyle={{ color: 'hsl(210 40% 98%)' }}
               formatter={(value: number) => [`R$ ${value}`, 'Faturamento']}

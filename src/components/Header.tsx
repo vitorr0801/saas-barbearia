@@ -3,8 +3,8 @@
 import React, { useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { 
-  Menu, X, Scissors, LogOut, User, 
-  LayoutDashboard, Calendar, Search, Heart, UserCircle
+  Menu, X, Scissors, LogOut,
+  LayoutDashboard, Calendar, Search, Heart, UserCircle, Wallet, Package, Users
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext" 
 import { useQuery } from "@tanstack/react-query" 
@@ -21,11 +21,31 @@ export function Header() {
 
   // 🚩 DEFINIÇÃO DE CONTEXTOS
   const isDiscoveryPage = location.pathname === "/descobrir";
-  
+
+  const barberWorkspacePaths = [
+    "/dashboard",
+    "/agendamentos",
+    "/financeiro",
+    "/produtos",
+    "/bancada",
+    "/onboarding",
+    "/setup",
+    "/perfil/barbeiro",
+    "/equipe",
+  ];
+  const isBarberWorkspace =
+    isAuthenticated &&
+    role === "barbeiro" &&
+    barberWorkspacePaths.some(
+      (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
+    );
+
   const isClientContext = isDiscoveryPage || 
                           location.pathname.startsWith("/agendar") ||
                           location.pathname.startsWith("/favoritos") ||
                           (isAuthenticated && role === 'cliente');
+
+  const showBookingStyleCenter = isClientContext || isBarberWorkspace;
 
   /** 📡 BUSCA DO STATUS DE FAVORITOS (Blindado para logados) */
   const { data: favoritesCount = 0 } = useQuery({
@@ -102,9 +122,9 @@ export function Header() {
             </span>
           </Link>
 
-          {/* 2. NAV CENTRAL */}
+          {/* 2. NAV CENTRAL — mesmo padrão da /agendar (busca pill) */}
           <div className="hidden lg:flex flex-1 justify-center px-8">
-            {!isClientContext ? (
+            {!showBookingStyleCenter ? (
               <div className="flex items-center gap-10">
                 {[{ label: "Home", href: "/" }, { label: "Sobre", href: "#problem" }, { label: "Funções", href: "#features" }, { label: "Preços", href: "#pricing" }].map((item) => (
                   <a key={item.label} href={item.href} className="text-[11px] font-black uppercase tracking-[0.2em] text-white/50 hover:text-primary transition-colors">
@@ -117,7 +137,7 @@ export function Header() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
                 <input 
                   type="text" 
-                  placeholder="Buscar barbearia ou serviço..." 
+                  placeholder={isBarberWorkspace ? "Buscar cliente, serviço ou histórico..." : "Buscar barbearia ou serviço..."} 
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-primary/40 transition-all placeholder:text-white/20"
                 />
               </div>
@@ -172,15 +192,83 @@ export function Header() {
                   </>
                 )}
               </div>
+            ) : isBarberWorkspace ? (
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="hidden md:flex items-center gap-5 border-r border-white/10 pr-5 mr-1">
+                  <Link
+                    to="/agendamentos"
+                    className={cn(
+                      "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                      location.pathname.startsWith("/agendamentos") && "text-primary",
+                    )}
+                  >
+                    <Calendar className="w-4 h-4 shrink-0" /> Agenda
+                  </Link>
+                  <Link
+                    to="/dashboard"
+                    className={cn(
+                      "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                      location.pathname === "/dashboard" && "text-primary",
+                    )}
+                  >
+                    <LayoutDashboard className="w-4 h-4 shrink-0" /> Painel
+                  </Link>
+                  {currentUser?.is_admin && (
+                    <>
+                      <Link
+                        to="/financeiro"
+                        className={cn(
+                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                          location.pathname.startsWith("/financeiro") && "text-primary",
+                        )}
+                      >
+                        <Wallet className="w-4 h-4 shrink-0" /> Financeiro
+                      </Link>
+                      <Link
+                        to="/produtos"
+                        className={cn(
+                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                          location.pathname.startsWith("/produtos") && "text-primary",
+                        )}
+                      >
+                        <Package className="w-4 h-4 shrink-0" /> Produtos
+                      </Link>
+                      <Link
+                        to="/equipe"
+                        className={cn(
+                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                          location.pathname.startsWith("/equipe") && "text-primary",
+                        )}
+                      >
+                        <Users className="w-4 h-4 shrink-0" /> Equipe
+                      </Link>
+                    </>
+                  )}
+                </div>
+                <Link
+                  to="/perfil/barbeiro"
+                  title="Meu perfil"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/15 text-white hover:border-primary/50 hover:text-primary transition-colors"
+                >
+                  <UserCircle className="w-5 h-5" strokeWidth={1.75} />
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  title="Sair"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" strokeWidth={1.75} />
+                </button>
+              </div>
             ) : (
-              /* ESTADO LOGADO (Sem alterações para evitar bugs) */
               <div className="flex items-center gap-4 sm:gap-6">
-                {role === 'barbeiro' && (
+                {role === "barbeiro" && !isBarberWorkspace && (
                   <Link to="/dashboard" className="hidden md:flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors border-r border-white/10 pr-6 mr-2">
                     <LayoutDashboard className="w-4 h-4" /> Painel
                   </Link>
                 )}
-                <Link to={role === 'barbeiro' ? '/perfil/barbeiro' : '/perfil/cliente'} className="flex items-center gap-3 group">
+                <Link to={role === "barbeiro" ? "/perfil/barbeiro" : "/perfil/cliente"} className="flex items-center gap-3 group">
                   <div className="hidden xs:flex flex-col text-right">
                     <span className="text-xs font-bold text-white group-hover:text-primary transition-colors">{displayName}</span>
                     <span className="text-[9px] font-black text-primary uppercase opacity-70 tracking-tighter">{role}</span>
@@ -222,6 +310,10 @@ export function Header() {
               ) : (
                 <div className="space-y-2">
                   <MobileNavItem icon={<LayoutDashboard />} label="Painel Administrativo" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
+                  <MobileNavItem icon={<Calendar />} label="Agenda da Barbearia" to="/agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
+                  <MobileNavItem icon={<Wallet />} label="Financeiro" to="/financeiro" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
+                  <MobileNavItem icon={<Package />} label="Produtos" to="/produtos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
+                  <MobileNavItem icon={<Users />} label="Minha Equipe" to="/equipe" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
                   <MobileNavItem icon={<Calendar />} label="Minha Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <MobileNavItem icon={<Heart />} label="Favoritos" to="/favoritos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 p-4 font-black uppercase italic text-destructive bg-destructive/5 rounded-2xl mt-4">

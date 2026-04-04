@@ -41,7 +41,7 @@ function getWhatsAppDigits(formatted: string) {
 export default function Signup() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, refreshUser, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, refreshUser, isLoading: authLoading, currentUser, role: authRole } = useAuth();
 
   // 🎯 CAPTURA DE CONTEXTO DA URL
   const roleParam = searchParams.get("role") as MaybeRole;
@@ -78,10 +78,17 @@ export default function Signup() {
   }, [roleParam]);
 
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      navigate("/", { replace: true });
+    if (!isAuthenticated || authLoading) return;
+    if (authRole === "barbeiro" && !currentUser?.barbearia_id) {
+      navigate("/onboarding", { replace: true });
+      return;
     }
-  }, [isAuthenticated, authLoading, navigate]);
+    if (authRole === "barbeiro") {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    navigate("/", { replace: true });
+  }, [isAuthenticated, authLoading, authRole, currentUser?.barbearia_id, navigate]);
 
   // 🧠 LÓGICA DO BOTÃO ULTRAINTELIGENTE V2 (Hierarquia Real)
   const handleBackAction = () => {
@@ -162,8 +169,26 @@ export default function Signup() {
       if (data.user && data.user.identities && data.user.identities.length === 0) {
         throw new Error("Este e-mail já está cadastrado. Por favor, faça login.");
       }
+      const isBarbeiro = role === "barbeiro" || roleParam === "barbeiro";
+      if (isBarbeiro) {
+        toast.success(
+          data.session
+            ? "Conta criada! Vamos configurar sua barbearia."
+            : "Sucesso! Ative seu e-mail para continuar.",
+          { id: toastId },
+        );
+        if (data.session) {
+          await refreshUser();
+          navigate("/onboarding", { replace: true });
+        } else {
+          setStep(2);
+        }
+        setIsSubmitting(false);
+        return;
+      }
       toast.success("Sucesso! Ative seu e-mail.", { id: toastId });
       setStep(2);
+      setIsSubmitting(false);
     } catch (error: any) {
       const message = error?.message || "Erro ao criar conta";
       const isDuplicateEmail = message.includes("já está cadastrado");
@@ -186,7 +211,7 @@ export default function Signup() {
       if (error) throw error;
       if (data?.user) {
         toast.success("Acesso autorizado!", { id: toastId });
-        refreshUser(); 
+        await refreshUser();
         navigate("/", { replace: true });
       }
     } catch (error: any) {

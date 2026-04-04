@@ -1,16 +1,17 @@
 import { ReactNode } from "react";
 import { MobileNav } from "./MobileNav";
-import { DesktopNav } from "./DesktopNav";
+import { Header } from "@/components/Header";
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
+/** Mesmo shell visual da /agendar: Header fino + bottom nav no mobile. */
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
-      <DesktopNav />
-      <main className="pb-20 md:pb-0 md:pt-16">
+      <Header />
+      <main className="pb-20 md:pb-0 pt-20">
         {children}
       </main>
       <MobileNav />

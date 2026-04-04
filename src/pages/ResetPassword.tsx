@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { 
@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isInviteAccept = location.pathname === "/atualizar-senha";
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,7 +81,9 @@ export default function ResetPassword() {
             NOVA SENHA
           </h1>
           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-            Sua segurança é nossa prioridade máxima
+            {isInviteAccept
+              ? "Complete seu cadastro na equipe BarberPro"
+              : "Sua segurança é nossa prioridade máxima"}
           </p>
         </div>
 

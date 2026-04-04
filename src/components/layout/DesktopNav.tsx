@@ -1,7 +1,15 @@
-import { Calendar, LayoutDashboard, Package, Scissors, User, Users, Wrench, Wallet, LogOut } from "lucide-react";
+import { Calendar, LayoutDashboard, Package, Scissors, User, Wallet, LogOut, ChevronDown } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function DesktopNav() {
   // 🚀 Adicionamos 'currentUser' aqui para pegar o nome
@@ -9,7 +17,7 @@ export function DesktopNav() {
   const navigate = useNavigate();
 
   const isBarbeiro = role === "barbeiro";
-  const isCliente = role === "cliente";
+  const isAdminBarber = isBarbeiro && currentUser?.is_admin;
 
   // ✨ Função para pegar apenas os dois primeiros nomes
   const getFirstName = (fullName: string | undefined) => {
@@ -50,10 +58,18 @@ export function DesktopNav() {
                 <Calendar className="h-4 w-4" />
                 <span className="text-sm font-medium">Agendamentos</span>
               </NavLink>
-              <NavLink to="/financeiro" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                <Wallet className="h-4 w-4" />
-                <span className="text-sm font-medium">Financeiro</span>
-              </NavLink>
+              {isAdminBarber && (
+                <>
+                  <NavLink to="/financeiro" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
+                    <Wallet className="h-4 w-4" />
+                    <span className="text-sm font-medium">Financeiro</span>
+                  </NavLink>
+                  <NavLink to="/produtos" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
+                    <Package className="h-4 w-4" />
+                    <span className="text-sm font-medium">Produtos</span>
+                  </NavLink>
+                </>
+              )}
             </>
           )}
 
@@ -71,29 +87,57 @@ export function DesktopNav() {
               <span className="text-sm font-medium">Entrar</span>
             </NavLink>
           ) : (
-            <div className="flex items-center gap-4 ml-2">
-              {/* 👤 Nome do Usuário Lapidado */}
-              <div className="flex flex-col text-right">
-                <span className="text-sm font-bold text-foreground leading-none">
-                  {getFirstName(currentUser?.name)}
-                </span>
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
-                  {role}
-                </span>
-              </div>
-
-              {/* Botão Sair com Ícone */}
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  navigate("/");
-                }}
-                className="flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                title="Sair da conta"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
+            <div className="flex items-center gap-3 ml-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-2 py-1.5 pr-3 hover:bg-secondary/70 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <Avatar className="h-9 w-9 border border-border">
+                      <AvatarFallback className="bg-primary/15 text-primary text-sm font-bold">
+                        {(currentUser?.name || "U")
+                          .split(/\s+/)
+                          .map((n) => n[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden sm:flex flex-col text-left">
+                      <span className="text-sm font-bold text-foreground leading-none max-w-[140px] truncate">
+                        {getFirstName(currentUser?.name)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                        {role}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      navigate(isBarbeiro ? "/perfil/barbeiro" : "/perfil/cliente")
+                    }
+                    className="cursor-pointer"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Meu perfil
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      logout();
+                      navigate("/");
+                    }}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>

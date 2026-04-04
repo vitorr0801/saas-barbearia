@@ -25,26 +25,28 @@ export function KPICard({
   highlight = false 
 }: KPICardProps) {
   return (
-    <div className={cn(
-      "kpi-card group",
-      highlight && "border-primary/30",
-      className
-    )}>
-      {highlight && (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-xl" />
+    <div
+      className={cn(
+        "dash-card group transition-colors hover:border-primary/25",
+        highlight && "border-primary/35",
+        className,
       )}
-      
+    >
       <div className="relative">
-        <div className="flex items-start justify-between mb-3">
-          <span className="kpi-label">{label}</span>
+        <div className="flex items-start justify-between mb-2">
+          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            {label}
+          </span>
           {icon && (
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <div className="p-1.5 rounded-lg bg-primary/10 text-primary [&_svg]:h-4 [&_svg]:w-4">
               {icon}
             </div>
           )}
         </div>
-        
-        <div className="kpi-value mb-2">{value}</div>
+
+        <div className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
+          {value}
+        </div>
         
         {trend && (
           <div className={cn(

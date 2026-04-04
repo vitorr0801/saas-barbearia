@@ -29,6 +29,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MyAppointments = lazy(() => import("./pages/MyAppointments"));
 const Favorites = lazy(() => import("./pages/Favorites"));
+const Team = lazy(() => import("./pages/Team"));
 
 const queryClient = new QueryClient();
 
@@ -50,8 +51,18 @@ const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) =
 /**
  * 🛡️ PROTECTED ROUTE (Refinado para Redirecionamento Contextual)
  */
-function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; allowedRoles?: Array<"cliente" | "barbeiro"> }) {
-  const { isAuthenticated, role, isLoading } = useAuth();
+const ONBOARDING_PATHS = ["/onboarding", "/setup"];
+
+function ProtectedRoute({
+  children,
+  allowedRoles,
+  requireBarberAdmin,
+}: {
+  children: JSX.Element;
+  allowedRoles?: Array<"cliente" | "barbeiro">;
+  requireBarberAdmin?: boolean;
+}) {
+  const { isAuthenticated, role, isLoading, currentUser } = useAuth();
   const location = useLocation();
 
   if (isLoading || (isAuthenticated && !role)) {
@@ -67,6 +78,25 @@ function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; all
     return <Navigate to="/" replace />;
   }
 
+  if (
+    requireBarberAdmin &&
+    role === "barbeiro" &&
+    currentUser &&
+    !currentUser.is_admin
+  ) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (role === "barbeiro" && !currentUser?.barbearia_id) {
+    if (!ONBOARDING_PATHS.includes(location.pathname)) {
+      return <Navigate to="/onboarding" replace />;
+    }
+  }
+
+  if (role === "barbeiro" && currentUser?.barbearia_id && ONBOARDING_PATHS.includes(location.pathname)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return children;
 }
 
@@ -74,7 +104,7 @@ function ProtectedRoute({ children, allowedRoles }: { children: JSX.Element; all
  * 🔀 HOME REDIRECT
  */
 const HomeRedirect = () => {
-  const { isAuthenticated, role, isLoading } = useAuth();
+  const { isAuthenticated, role, isLoading, currentUser } = useAuth();
 
   if (isLoading || (isAuthenticated && !role)) {
     return <LoadingScreen message="Preparando seu acesso..." />;
@@ -82,7 +112,13 @@ const HomeRedirect = () => {
 
   if (!isAuthenticated) return <Landing />;
   
-  return <Navigate to={role === "barbeiro" ? "/dashboard" : "/descobrir"} replace />;
+  if (role === "barbeiro" && !currentUser?.barbearia_id) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (role === "barbeiro") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Navigate to="/descobrir" replace />;
 };
 
 const AppRoutes = () => {
@@ -95,6 +131,7 @@ const AppRoutes = () => {
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/cadastro" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/atualizar-senha" element={<ResetPassword />} />
           
           {/* 🎯 ACESSO CONVIDADO: ClientPortal e Agendamento agora são abertos */}
           <Route path="/descobrir" element={<ClientPortal />} />
@@ -103,9 +140,11 @@ const AppRoutes = () => {
           {/* --- ROTAS PROTEGIDAS: BARBEIRO --- */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Dashboard /></ProtectedRoute>} />
           <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Agenda /></ProtectedRoute>} />
-          <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Financial /></ProtectedRoute>} />
-          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Products /></ProtectedRoute>} />
-          <Route path="/setup" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
+          <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Financial /></ProtectedRoute>} />
+          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Products /></ProtectedRoute>} />
+          <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Team /></ProtectedRoute>} />
+          <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
+          <Route path="/setup" element={<Navigate to="/onboarding" replace />} />
           <Route path="/bancada" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Workstation /></ProtectedRoute>} />
           <Route path="/perfil/barbeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]}><BarberProfile /></ProtectedRoute>} />
 

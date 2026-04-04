@@ -15,14 +15,16 @@ export function ClientRiskList() {
   };
 
   return (
-    <div className="card-premium p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-destructive/10">
-          <AlertTriangle className="h-5 w-5 text-destructive" />
+    <div className="dash-card">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-1.5 rounded-lg bg-destructive/10">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Clientes em Risco</h3>
-          <p className="text-sm text-muted-foreground">Sem visita há mais de 45 dias</p>
+          <h3 className="text-base font-black uppercase italic tracking-tight text-foreground">Clientes em Risco</h3>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
+            Sem visita há mais de 45 dias
+          </p>
         </div>
       </div>
       
@@ -30,7 +32,7 @@ export function ClientRiskList() {
         {riskClients.map((client) => (
           <div 
             key={client.id}
-            className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 transition-colors hover:bg-secondary"
+            className="flex items-center justify-between p-3 rounded-xl border border-transparent bg-secondary/40 transition-colors hover:bg-secondary/60 hover:border-border"
           >
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">

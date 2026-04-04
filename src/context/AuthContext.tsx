@@ -11,7 +11,9 @@ export interface AuthUser {
   phone: string; 
   cpf: string;
   email: string; 
-  role: Role; 
+  role: Role;
+  barbearia_id: string | null;
+  is_admin: boolean;
 }
 
 interface AuthContextValue {
@@ -46,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, phone, cpf, role, email')
+        .select('id, name, phone, cpf, role, email, barbearia_id, is_admin')
         .eq('id', userId)
         .maybeSingle();
 
@@ -59,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cpf: data?.cpf || "",
         email: data?.email || authEmail,
         role: (data?.role || metadata?.role || "cliente") as Role,
+        barbearia_id: data?.barbearia_id ?? null,
+        is_admin: Boolean(data?.is_admin),
       };
 
       setCurrentUser(userData);
@@ -73,6 +77,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cpf: "",
         email: authEmail,
         role: (metadata?.role as Role) || "cliente",
+        barbearia_id: null,
+        is_admin: false,
       });
     } finally {
       setIsLoading(false);
