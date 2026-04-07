@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, ImageIcon, Link2, MapPin, Tags } from "lucide-react";
+import { Building2, ImageIcon, Link2, MapPin, Tags, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,15 +54,6 @@ const onboardingSchema = z.object({
     .array(z.string().trim().min(1))
     .transform((arr) => [...new Set(arr)])
     .default([]),
-  cover_image: z
-    .string()
-    .trim()
-    .transform((s) => (s === "" ? null : s))
-    .nullable()
-    .refine(
-      (s) => s === null || /^https?:\/\/.+/i.test(s),
-      "Informe uma URL válida (http ou https) ou deixe em branco.",
-    ),
 });
 
 export default function Onboarding() {
@@ -75,8 +66,19 @@ export default function Onboarding() {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [customTagInput, setCustomTagInput] = useState("");
   const [customTags, setCustomTags] = useState<string[]>([]);
-  const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const coverPreviewUrl = useMemo(() => {
+    if (!coverFile) return null;
+    return URL.createObjectURL(coverFile);
+  }, [coverFile]);
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    };
+  }, [coverPreviewUrl]);
 
   useEffect(() => {
     if (!slugTouched) {
@@ -127,7 +129,6 @@ export default function Onboarding() {
       slug,
       neighborhood,
       categories: categoriesArray,
-      cover_image: coverImageUrl,
     });
 
     if (!parsed.success) {
@@ -147,6 +148,44 @@ export default function Onboarding() {
         throw new Error("Sessão inválida. Faça login novamente.");
       }
 
+      let coverImagePublicUrl: string | null = null;
+      if (coverFile) {
+        if (!coverFile.type.startsWith("image/")) {
+          throw new Error("Selecione um arquivo de imagem válido.");
+        }
+        const maxBytes = 6 * 1024 * 1024; // 6MB
+        if (coverFile.size > maxBytes) {
+          throw new Error("A imagem é muito grande (máx. 6MB).");
+        }
+
+        toast.loading("Enviando foto de capa...", { id: toastId });
+
+        const ext =
+          (coverFile.name.split(".").pop() || "").toLowerCase() ||
+          (coverFile.type.split("/").pop() || "jpg").toLowerCase();
+        const fileName = `cover_${user.id}_${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("barbershop-assets")
+          .upload(fileName, coverFile, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: coverFile.type || undefined,
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message || "Falha ao enviar a imagem.");
+        }
+
+        const { data: pub } = supabase.storage
+          .from("barbershop-assets")
+          .getPublicUrl(fileName);
+
+        coverImagePublicUrl = pub?.publicUrl ?? null;
+      }
+
+      toast.loading("Salvando dados da barbearia...", { id: toastId });
+
       const { data: created, error: insertError } = await supabase
         .from("barbearias")
         .insert({
@@ -155,7 +194,7 @@ export default function Onboarding() {
           slug: parsed.data.slug,
           neighborhood: parsed.data.neighborhood,
           categories: parsed.data.categories,
-          cover_image: parsed.data.cover_image,
+          cover_image: coverImagePublicUrl,
         })
         .select("id")
         .single();
@@ -342,20 +381,66 @@ export default function Onboarding() {
             <div className="space-y-2">
               <Label htmlFor="cover-image" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 <ImageIcon className="h-3.5 w-3.5" />
-                Foto de capa <span className="font-normal normal-case text-[10px] text-muted-foreground">(URL, opcional)</span>
+                Foto de capa <span className="font-normal normal-case text-[10px] text-muted-foreground">(upload, opcional)</span>
               </Label>
-              <Input
-                id="cover-image"
-                type="url"
-                placeholder="https://exemplo.com/imagem.jpg"
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-                className="h-12 rounded-xl bg-secondary/50 text-sm"
-                disabled={isSubmitting}
-                autoComplete="off"
-              />
+              <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {coverFile ? coverFile.name : "Nenhuma imagem selecionada"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      PNG/JPG/WebP até 6MB
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      id="cover-image"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isSubmitting}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setCoverFile(file);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-xl"
+                      disabled={isSubmitting}
+                      onClick={() => document.getElementById("cover-image")?.click()}
+                    >
+                      <UploadCloud className="h-4 w-4 mr-2" />
+                      Escolher
+                    </Button>
+                    {coverFile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl"
+                        disabled={isSubmitting}
+                        onClick={() => setCoverFile(null)}
+                      >
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {coverPreviewUrl && (
+                  <div className="overflow-hidden rounded-xl border border-border bg-card">
+                    <img
+                      src={coverPreviewUrl}
+                      alt="Preview da foto de capa"
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
               <p className="text-[10px] text-muted-foreground">
-                Cole o link público da imagem. Upload direto ao storage pode ser adicionado depois.
+                Esta imagem aparece no seu perfil público. Você pode trocar depois.
               </p>
             </div>
 

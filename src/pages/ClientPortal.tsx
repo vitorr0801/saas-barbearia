@@ -50,10 +50,21 @@ export default function ClientPortal() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("barbearias")
-        .select("*")
+        .select("id, name, neighborhood, categories, cover_image, status")
         .eq("status", "active");
       if (error) throw error;
-      return data || [];
+      return (
+        (data ?? []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          neighborhood: s.neighborhood ?? "—",
+          categories: Array.isArray(s.categories) ? s.categories : [],
+          coverImage: s.cover_image ?? null,
+          // Defaults para manter o card compatível (até termos avaliações/preços reais no schema)
+          rating: 4.8,
+          startingPrice: 55,
+        })) ?? []
+      );
     },
     staleTime: 1000 * 60 * 5, 
   });

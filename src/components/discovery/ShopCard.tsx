@@ -29,7 +29,7 @@ interface ShopCardProps {
 
 export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
   // 📸 Lógica de Imagem Híbrida
-  const displayImage = shop.image || shop.coverImage || "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800";
+  const displayImage = shop.image || shop.coverImage || null;
 
   return (
     <Card
@@ -37,13 +37,22 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
       onClick={() => onSelect(shop.id)}
     >
       <AspectRatio ratio={16 / 10}>
-        <div
-          className="w-full h-full bg-cover bg-center relative group-hover:scale-105 transition-transform duration-700"
-          style={{
-            backgroundImage: `url(${displayImage})`,
-            backgroundColor: "hsl(var(--muted))",
-          }}
-        >
+        <div className="w-full h-full relative overflow-hidden">
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={`Foto da ${shop.name}`}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted flex items-center justify-center">
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                Sem foto
+              </span>
+            </div>
+          )}
+
           {/* Overlay de Gradiente para leitura de texto */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c12] via-transparent to-transparent opacity-80" />
           
@@ -65,18 +74,6 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
             
           </div>
 
-          {/* Categorias Flutuantes */}
-          <div className="absolute bottom-4 left-4 flex gap-2">
-            {shop.categories.slice(0, 2).map((cat) => (
-              <Badge
-                key={cat}
-                variant="secondary"
-                className="bg-white/10 backdrop-blur-md border-white/10 text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 text-white/90"
-              >
-                {cat}
-              </Badge>
-            ))}
-          </div>
         </div>
       </AspectRatio>
 
@@ -89,6 +86,22 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
             <MapPin className="h-3 w-3 text-primary" />
             <span className="text-[10px] font-bold uppercase tracking-widest truncate">{shop.neighborhood}</span>
           </div>
+          {Array.isArray(shop.categories) && shop.categories.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {shop.categories.map((cat) => (
+                <Badge
+                  key={cat}
+                  variant="secondary"
+                  className={cn(
+                    "bg-white/10 backdrop-blur-md border-white/10",
+                    "text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 text-white/90",
+                  )}
+                >
+                  {cat}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="pt-4 border-t border-white/5 flex items-center justify-between">

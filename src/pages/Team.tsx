@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -18,16 +18,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { inviteBarberByEmail, removeBarberById } from "@/lib/team-client";
+import {
+  inviteBarberByEmail,
+  listTeamMembers,
+  removeBarberById,
+  type TeamMember,
+} from "@/lib/team-client";
 import { Mail, UserMinus, Users } from "lucide-react";
-
-type TeamMember = {
-  id: string;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  is_admin: boolean | null;
-};
 
 export default function Team() {
   const { currentUser } = useAuth();
@@ -42,15 +39,9 @@ export default function Team() {
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members", barbeariaId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, name, email, phone, is_admin")
-        .eq("barbearia_id", barbeariaId as string)
-        .order("is_admin", { ascending: false })
-        .order("name", { ascending: true });
-
-      if (error) throw error;
-      return (data ?? []) as TeamMember[];
+      const { members, error } = await listTeamMembers();
+      if (error) throw new Error(error);
+      return members;
     },
     enabled: !!barbeariaId,
   });
@@ -100,6 +91,12 @@ export default function Team() {
 
   const displayName = (m: TeamMember) =>
     (m.name && m.name.trim()) || m.email || "Sem nome";
+
+  const statusLabel = (status: string | null | undefined) => {
+    const normalized = (status || "").toLowerCase();
+    if (normalized === "pendente") return { text: "Aguardando...", variant: "pending" as const };
+    return { text: "Ativo", variant: "active" as const };
+  };
 
   return (
     <AppLayout>
@@ -187,6 +184,26 @@ export default function Team() {
                       <p className="text-[10px] font-black uppercase tracking-widest text-primary mt-2">
                         {isOwner ? "Dono" : "Profissional"}
                       </p>
+                      {!isOwner && (
+                        <div className="mt-2">
+                          {(() => {
+                            const s = statusLabel(m.status);
+                            if (s.variant === "pending") {
+                              return (
+                                <Badge className="bg-amber-500/15 text-amber-600 border border-amber-500/25">
+                                  {s.text}
+                                </Badge>
+                              );
+                            }
+                            // Ativo (ou legado nulo)
+                            return (
+                              <Badge className="bg-emerald-500/15 text-emerald-600 border border-emerald-500/25">
+                                {s.text}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                     {canRemove && (
                       <Button

@@ -124,6 +124,7 @@ export async function inviteBarberForShop(
       role: "barbeiro",
       barbearia_id: params.barbeariaId,
       is_admin: false,
+      status: "pendente",
     },
     { onConflict: "id" },
   );
@@ -175,4 +176,33 @@ export async function removeBarberFromShop(
   }
 
   return { ok: true };
+}
+
+export type TeamMemberRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  is_admin: boolean | null;
+  status: string | null;
+};
+
+export async function listTeamMembersForShop(
+  env: TeamEnv,
+  params: { barbeariaId: string },
+): Promise<{ ok: true; members: TeamMemberRow[] } | { ok: false; message: string }> {
+  const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id, name, email, phone, is_admin, status")
+    .eq("barbearia_id", params.barbeariaId)
+    .order("is_admin", { ascending: false })
+    .order("name", { ascending: true });
+
+  if (error) {
+    return { ok: false, message: error.message || "Não foi possível listar a equipe." };
+  }
+
+  return { ok: true, members: (data ?? []) as TeamMemberRow[] };
 }

@@ -1,10 +1,19 @@
 import { supabase } from "@/lib/supabase";
 
 type ApiErrorBody = { error?: string };
+type TeamListBody<T> = { members?: T[]; error?: string };
 
 async function parseJson(res: Response): Promise<ApiErrorBody> {
   try {
     return (await res.json()) as ApiErrorBody;
+  } catch {
+    return {};
+  }
+}
+
+async function parseJsonTeamList<T>(res: Response): Promise<TeamListBody<T>> {
+  try {
+    return (await res.json()) as TeamListBody<T>;
   } catch {
     return {};
   }
@@ -58,4 +67,36 @@ export async function removeBarberById(barberId: string): Promise<{ error?: stri
     return { error: json.error || "Não foi possível remover o profissional." };
   }
   return {};
+}
+
+export type TeamMember = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  is_admin: boolean | null;
+  status: string | null;
+};
+
+export async function listTeamMembers(): Promise<{ members: TeamMember[]; error?: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { members: [], error: "Faça login novamente." };
+  }
+
+  const res = await fetch("/api/team/list", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  const data = await parseJsonTeamList<TeamMember>(res);
+  console.log("Resposta da API de Equipe:", data);
+
+  if (!res.ok) {
+    return { members: [], error: data.error || "Não foi possível carregar a equipe." };
+  }
+
+  return { members: (data.members ?? []) as TeamMember[] };
 }

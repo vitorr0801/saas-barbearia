@@ -5,6 +5,7 @@ import {
   verifyOwnerFromAccessToken,
   inviteBarberForShop,
   removeBarberFromShop,
+  listTeamMembersForShop,
 } from "./team-logic";
 
 function parseEnv(v: Record<string, string>): TeamEnv {
@@ -50,13 +51,8 @@ function teamMiddleware(teamEnv: TeamEnv) {
     const url = new URL(req.url || "/", `http://${host}`);
     const path = url.pathname;
 
-    if (path !== "/api/team/invite" && path !== "/api/team/remove") {
+    if (path !== "/api/team/invite" && path !== "/api/team/remove" && path !== "/api/team/list") {
       next();
-      return;
-    }
-
-    if (req.method !== "POST") {
-      sendJson(res, 405, { error: "Method not allowed" });
       return;
     }
 
@@ -70,6 +66,30 @@ function teamMiddleware(teamEnv: TeamEnv) {
     const owner = await verifyOwnerFromAccessToken(teamEnv, token);
     if (!owner.ok) {
       sendJson(res, 403, { error: owner.message });
+      return;
+    }
+
+    if (path === "/api/team/list") {
+      if (req.method !== "GET") {
+        sendJson(res, 405, { error: "Method not allowed" });
+        return;
+      }
+      try {
+        const result = await listTeamMembersForShop(teamEnv, { barbeariaId: owner.barbeariaId });
+        if (!result.ok) {
+          sendJson(res, 400, { error: result.message });
+          return;
+        }
+        sendJson(res, 200, { members: result.members });
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : "Erro interno.";
+        sendJson(res, 500, { error: msg });
+      }
+      return;
+    }
+
+    if (req.method !== "POST") {
+      sendJson(res, 405, { error: "Method not allowed" });
       return;
     }
 
@@ -132,7 +152,7 @@ function teamMiddleware(teamEnv: TeamEnv) {
 }
 
 /**
- * Expõe POST /api/team/invite e POST /api/team/remove no dev server e no vite preview.
+ * Expõe POST /api/team/invite, POST /api/team/remove e GET /api/team/list no dev server e no vite preview.
  * Requer SUPABASE_SERVICE_ROLE_KEY no .env (carregado via loadEnv no vite.config).
  */
 export function teamApiVitePlugin(env: Record<string, string>): Plugin {

@@ -46,6 +46,7 @@ export default function Signup() {
   // 🎯 CAPTURA DE CONTEXTO DA URL
   const roleParam = searchParams.get("role") as MaybeRole;
   const modeParam = searchParams.get("mode") as "signup" | "login" | null;
+  const isBarberLocked = roleParam === "barbeiro";
   
   // Trava de Segurança visual de perfil
   const isRoleLocked = roleParam === "cliente" || roleParam === "barbeiro";
@@ -76,6 +77,13 @@ export default function Signup() {
   useEffect(() => {
     if (roleParam) setRole(roleParam);
   }, [roleParam]);
+
+  useEffect(() => {
+    if (!isBarberLocked) return;
+    setAuthMode(modeParam === "signup" ? "signup" : "login");
+    setIsRecovering(false);
+    setStep(1);
+  }, [isBarberLocked, modeParam]);
 
   useEffect(() => {
     if (!isAuthenticated || authLoading) return;
@@ -210,6 +218,45 @@ export default function Signup() {
       });
       if (error) throw error;
       if (data?.user) {
+        // 🔒 Bloqueio de login cruzado por contexto de URL (role=cliente|barbeiro)
+        if (roleParam === "cliente" || roleParam === "barbeiro") {
+          const { data: profile, error: profErr } = await supabase
+            .from("profiles")
+            .select("role, barbearia_id")
+            .eq("id", data.user.id)
+            .maybeSingle();
+
+          if (profErr || !profile) {
+            await supabase.auth.signOut();
+            toast.error("Não foi possível validar seu perfil. Faça login novamente.", { id: toastId });
+            setIsSubmitting(false);
+            return;
+          }
+
+          const isProfessional =
+            profile.role === "barbeiro" || Boolean(profile.barbearia_id);
+
+          if (roleParam === "barbeiro" && !isProfessional) {
+            await supabase.auth.signOut();
+            toast.error(
+              "Acesso negado. Esta área é exclusiva para profissionais. Faça login na área do cliente.",
+              { id: toastId },
+            );
+            setIsSubmitting(false);
+            return;
+          }
+
+          if (roleParam === "cliente" && isProfessional) {
+            await supabase.auth.signOut();
+            toast.error(
+              "Acesso negado. Você é um profissional. Faça login na área da barbearia.",
+              { id: toastId },
+            );
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
         toast.success("Acesso autorizado!", { id: toastId });
         await refreshUser();
         navigate("/", { replace: true });
@@ -278,12 +325,14 @@ export default function Signup() {
               {isSubmitting ? "Autenticando..." : isRecovering ? "Enviar Resgate" : "Acessar Sistema"}
             </Button>
 
-            <div className="text-center mt-8">
-              <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-                Novo por aqui? 
-                <button onClick={() => { setAuthMode("signup"); setIsRecovering(false); }} className="text-primary hover:underline ml-2">CADASTRAR-SE</button>
-              </p>
-            </div>
+            {!isBarberLocked && (
+              <div className="text-center mt-8">
+                <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
+                  Novo por aqui? 
+                  <button onClick={() => { setAuthMode("signup"); setIsRecovering(false); }} className="text-primary hover:underline ml-2">CADASTRAR-SE</button>
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -369,6 +418,7 @@ export default function Signup() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (isBarberLocked) return;
                       setAuthMode("login");
                       setIsRecovering(false);
                     }}
@@ -380,9 +430,11 @@ export default function Signup() {
               </div>
             )}
 
-            <p className="text-center text-xs text-muted-foreground mt-8 font-bold uppercase tracking-widest">
-              Já tem conta? <button onClick={() => setAuthMode("login")} className="text-primary hover:underline ml-1">FAZER LOGIN</button>
-            </p>
+            {!isBarberLocked && (
+              <p className="text-center text-xs text-muted-foreground mt-8 font-bold uppercase tracking-widest">
+                Já tem conta? <button onClick={() => setAuthMode("login")} className="text-primary hover:underline ml-1">FAZER LOGIN</button>
+              </p>
+            )}
           </div>
         )}
 

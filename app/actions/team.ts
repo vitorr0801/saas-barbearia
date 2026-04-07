@@ -82,6 +82,7 @@ export async function inviteBarberAction(
         role: "barbeiro",
         barbearia_id: profile.barbearia_id,
         is_admin: false,
+        status: "pendente",
       },
       { onConflict: "id" },
     );
