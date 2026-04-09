@@ -93,7 +93,7 @@ export default function ClientPortal() {
       const { data } = await supabase
         .from("appointments")
         .select("*")
-        .eq("user_id", currentUser.id)
+        .eq("client_id", currentUser.id)
         .eq("status", "confirmado")
         .limit(1);
       return data || [];

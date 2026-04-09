@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import { 
   Menu, X, Scissors, LogOut,
-  LayoutDashboard, Calendar, Search, Heart, UserCircle, Wallet, Package, Users
+  LayoutDashboard, Calendar, Search, Heart, UserCircle, Wallet, Package, Users, Settings
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext" 
 import { useQuery } from "@tanstack/react-query" 
@@ -234,6 +234,15 @@ export function Header() {
                         <Package className="w-4 h-4 shrink-0" /> Produtos
                       </Link>
                       <Link
+                        to="/dashboard/configuracoes"
+                        className={cn(
+                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                          location.pathname.startsWith("/dashboard/configuracoes") && "text-primary",
+                        )}
+                      >
+                        <Settings className="w-4 h-4 shrink-0" /> Configurações
+                      </Link>
+                      <Link
                         to="/equipe"
                         className={cn(
                           "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
@@ -313,6 +322,7 @@ export function Header() {
                   <MobileNavItem icon={<Calendar />} label="Agenda da Barbearia" to="/agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
                   <MobileNavItem icon={<Wallet />} label="Financeiro" to="/financeiro" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
                   <MobileNavItem icon={<Package />} label="Produtos" to="/produtos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
+                  <MobileNavItem icon={<Settings />} label="Configurações" to="/dashboard/configuracoes" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
                   <MobileNavItem icon={<Users />} label="Minha Equipe" to="/equipe" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
                   <MobileNavItem icon={<Calendar />} label="Minha Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <MobileNavItem icon={<Heart />} label="Favoritos" to="/favoritos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />

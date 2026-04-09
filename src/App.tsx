@@ -24,12 +24,14 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Workstation = lazy(() => import("./pages/Workstation"));
 const ClientProfile = lazy(() => import("./pages/ClientProfile"));
 const BarberProfile = lazy(() => import("./pages/BarberProfile"));
+const BarbershopSettings = lazy(() => import("./pages/BarbershopSettings"));
 const Signup = lazy(() => import("./pages/Signup"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MyAppointments = lazy(() => import("./pages/MyAppointments"));
 const Favorites = lazy(() => import("./pages/Favorites"));
 const Team = lazy(() => import("./pages/Team"));
+const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
 
 const queryClient = new QueryClient();
 
@@ -136,12 +138,15 @@ const AppRoutes = () => {
           {/* 🎯 ACESSO CONVIDADO: ClientPortal e Agendamento agora são abertos */}
           <Route path="/descobrir" element={<ClientPortal />} />
           <Route path="/agendar" element={<Index />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/sucesso" element={<BookingSuccess />} />
           
           {/* --- ROTAS PROTEGIDAS: BARBEIRO --- */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Dashboard /></ProtectedRoute>} />
           <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Agenda /></ProtectedRoute>} />
           <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Financial /></ProtectedRoute>} />
           <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Products /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><BarbershopSettings /></ProtectedRoute>} />
           <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Team /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
           <Route path="/setup" element={<Navigate to="/onboarding" replace />} />
@@ -151,7 +156,6 @@ const AppRoutes = () => {
           {/* --- ROTAS PROTEGIDAS: CLIENTE --- */}
           <Route path="/meus-agendamentos" element={<ProtectedRoute allowedRoles={["cliente"]}><MyAppointments /></ProtectedRoute>} />
           <Route path="/perfil/cliente" element={<ProtectedRoute allowedRoles={["cliente"]}><ClientProfile /></ProtectedRoute>} />
-          <Route path="/checkout" element={<ProtectedRoute allowedRoles={["cliente"]}><Checkout /></ProtectedRoute>} />
           <Route path="/favoritos" element={<ProtectedRoute allowedRoles={["cliente", "barbeiro"]}><Favorites /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />

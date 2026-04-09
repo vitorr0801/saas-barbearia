@@ -13,9 +13,10 @@ interface TimeSlotGridProps {
   selectedSlot: string | null;
   onSelect: (id: string) => void;
   isLoading?: boolean; // 👈 Adicionado como opcional para evitar quebras
+  emptyMessage?: string;
 }
 
-export function TimeSlotGrid({ slots, selectedSlot, onSelect, isLoading }: TimeSlotGridProps) {
+export function TimeSlotGrid({ slots, selectedSlot, onSelect, isLoading, emptyMessage }: TimeSlotGridProps) {
   
   // 🌀 EFEITO DE SKELETON (PADRÃO DE ELITE)
   if (isLoading) {
@@ -36,7 +37,7 @@ export function TimeSlotGrid({ slots, selectedSlot, onSelect, isLoading }: TimeS
     return (
       <div className="text-center py-4 bg-secondary/20 rounded-2xl border border-dashed border-border">
         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-          Nenhum horário disponível
+          {emptyMessage ?? "Nenhum horário disponível"}
         </p>
       </div>
     );

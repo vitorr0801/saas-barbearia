@@ -44,8 +44,10 @@ export default function MyAppointments() {
           profiles!client_id (
             name,
             phone
-          )
-        `) // 👈 Buscamos os dados atuais do perfil do cliente
+          ),
+          services:service_id ( name ),
+          professional:profiles!professional_id ( name )
+        `)
         .eq("client_id", currentUser.id)
         .order("appointment_date", { ascending: true });
 
@@ -185,18 +187,18 @@ export default function MyAppointments() {
                     </div>
                     <div>
                       <h3 className="font-black text-lg italic uppercase tracking-tight leading-tight">
-                        {apt.service_name}
+                        {apt.service_name ?? apt.services?.name ?? "Serviço"}
                       </h3>
                       <div className="flex flex-col gap-1 mt-1">
                         <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
-                          <User className="w-3 h-3" /> {apt.professional_name}
+                          <User className="w-3 h-3" /> {apt.professional_name ?? apt.professional?.name ?? "—"}
                         </p>
                         {/* 🛡️ EXIBIÇÃO DO NOME DO CLIENTE (DINÂMICO) */}
                         <p className="text-[9px] font-bold text-muted-foreground uppercase">
                           Cliente: {apt.profiles?.name || "Perfil Excluído"}
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground/60 uppercase">
-                          R$ {apt.price?.toFixed(2)} • {apt.payment_method}
+                          R$ {(apt.total_price ?? apt.price)?.toFixed(2)} • {apt.payment_method ?? "—"}
                         </p>
                       </div>
                     </div>
