@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { isPasswordSecure, PASSWORD_REQUIREMENTS } from "@/lib/passwordPolicy";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -41,19 +42,11 @@ export default function ResetPassword() {
     }
   }, []);
 
-  // 🛡️ REQUISITOS DE SENHA (Sincronizados com o Signup para integridade total)
-  const passwordRequirements = useMemo(() => [
-    { label: "6 a 72 caracteres", test: (pw: string) => pw.length >= 6 && pw.length <= 72 },
-    { label: "Uma letra maiúscula", test: (pw: string) => /[A-Z]/.test(pw) },
-    { label: "Um número", test: (pw: string) => /[0-9]/.test(pw) },
-    { label: "Um caractere especial", test: (pw: string) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
-  ], []);
-
-  const isPasswordSecure = passwordRequirements.every(req => req.test(password));
+  const passwordRequirements = PASSWORD_REQUIREMENTS;
 
   // 🛠️ FUNÇÃO DE ATUALIZAÇÃO (NÍVEL MUNDIAL)
   const handleResetPassword = async () => {
-    if (!isPasswordSecure) {
+    if (!isPasswordSecure(password)) {
       toast.error("A senha não atende aos requisitos de segurança.");
       return;
     }
@@ -176,7 +169,7 @@ export default function ResetPassword() {
 
             <Button 
               onClick={handleResetPassword} 
-              disabled={!isPasswordSecure || isSubmitting} 
+              disabled={!isPasswordSecure(password) || isSubmitting} 
               className="w-full h-16 rounded-2xl font-black uppercase italic text-lg shadow-xl shadow-primary/20 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
               {isSubmitting ? "Protegendo..." : (

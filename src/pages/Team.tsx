@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -26,6 +26,10 @@ import {
 } from "@/lib/team-client";
 import { Mail, UserMinus, Users } from "lucide-react";
 
+/** Validação de e-mail (formato geral aceito em formulários web). */
+const INVITE_EMAIL_REGEX =
+  /^[a-zA-Z0-9](?:[a-zA-Z0-9._%+-]*[a-zA-Z0-9])?@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+$/;
+
 export default function Team() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -35,6 +39,13 @@ export default function Team() {
   const [removeLoading, setRemoveLoading] = useState(false);
 
   const barbeariaId = currentUser?.barbearia_id;
+
+  const trimmedInviteEmail = email.trim();
+  const isInviteEmailValid = useMemo(
+    () => INVITE_EMAIL_REGEX.test(trimmedInviteEmail),
+    [trimmedInviteEmail],
+  );
+  const showInviteEmailError = trimmedInviteEmail.length > 0 && !isInviteEmailValid;
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members", barbeariaId],
@@ -49,7 +60,7 @@ export default function Team() {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (!INVITE_EMAIL_REGEX.test(trimmed)) {
       toast.error("Informe um e-mail válido.");
       return;
     }
@@ -94,7 +105,7 @@ export default function Team() {
 
   const statusLabel = (status: string | null | undefined) => {
     const normalized = (status || "").toLowerCase();
-    if (normalized === "pendente") return { text: "Aguardando...", variant: "pending" as const };
+    if (normalized === "pendente") return { text: "Aguardando aceite", variant: "pending" as const };
     return { text: "Ativo", variant: "active" as const };
   };
 
@@ -133,12 +144,18 @@ export default function Team() {
                 disabled={inviteLoading}
                 className="h-11 rounded-xl bg-secondary/50"
                 autoComplete="off"
+                aria-invalid={showInviteEmailError}
               />
+              {showInviteEmailError && (
+                <p className="text-xs font-semibold text-destructive" role="alert">
+                  Email inválido
+                </p>
+              )}
             </div>
             <div className="flex items-end">
               <Button
                 type="submit"
-                disabled={inviteLoading || !email.trim()}
+                disabled={inviteLoading || !isInviteEmailValid}
                 className="h-11 w-full sm:w-auto rounded-xl bg-primary text-primary-foreground font-black uppercase text-[10px] tracking-widest shadow-none hover:bg-primary/90 px-6"
               >
                 {inviteLoading ? "Enviando..." : "Convidar barbeiro"}

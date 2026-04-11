@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { 
   User, 
   Scissors, 
@@ -22,7 +22,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Role, useAuth } from "@/context/AuthContext";
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
+import { isEmailAlreadyRegisteredError } from "@/lib/authErrors";
+import { isPasswordSecure, PASSWORD_REQUIREMENTS } from "@/lib/passwordPolicy";
 
 type MaybeRole = Role | null;
 
@@ -122,21 +124,18 @@ export default function Signup() {
     navigate(-1);
   };
 
-  const passwordRequirements = useMemo(() => [
-    { label: "6 a 72 caracteres", test: (pw: string) => pw.length >= 6 && pw.length <= 72 },
-    { label: "Uma letra maiúscula", test: (pw: string) => /[A-Z]/.test(pw) },
-    { label: "Um número", test: (pw: string) => /[0-9]/.test(pw) },
-    { label: "Um caractere especial", test: (pw: string) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
-  ], []);
+  const passwordRequirements = PASSWORD_REQUIREMENTS;
 
   const whatsappDigits = getWhatsAppDigits(whatsapp);
   const isNameValid = name.trim().length >= 3;
   const isWhatsappValid = whatsappDigits.length === 11;
   const isEmailValid = /\S+@\S+\.\S+/.test(email.trim());
   const isLoginEmailValid = /\S+@\S+\.\S+/.test(loginIdentifier.trim());
-  const isPasswordSecure = passwordRequirements.every(req => req.test(password));
+  const passwordOk = isPasswordSecure(password);
   
-  const canProceed = !!role && isNameValid && isWhatsappValid && isPasswordSecure && isEmailValid;
+  const canProceed = !!role && isNameValid && isWhatsappValid && passwordOk && isEmailValid;
+
+  const DUPLICATE_EMAIL_MSG = "Este e-mail já está cadastrado. Por favor, faça login.";
 
   const handleRecoverPassword = async () => {
     if (!isLoginEmailValid) {
@@ -175,7 +174,10 @@ export default function Signup() {
       });
       if (error) throw error;
       if (data.user && data.user.identities && data.user.identities.length === 0) {
-        throw new Error("Este e-mail já está cadastrado. Por favor, faça login.");
+        setSignupError(DUPLICATE_EMAIL_MSG);
+        setIsDuplicateEmailError(true);
+        toast.error(DUPLICATE_EMAIL_MSG, { id: toastId });
+        return;
       }
       const isBarbeiro = role === "barbeiro" || roleParam === "barbeiro";
       if (isBarbeiro) {
@@ -191,18 +193,17 @@ export default function Signup() {
         } else {
           setStep(2);
         }
-        setIsSubmitting(false);
         return;
       }
       toast.success("Sucesso! Ative seu e-mail.", { id: toastId });
       setStep(2);
-      setIsSubmitting(false);
-    } catch (error: any) {
-      const message = error?.message || "Erro ao criar conta";
-      const isDuplicateEmail = message.includes("já está cadastrado");
+    } catch (error: unknown) {
+      const duplicate = isEmailAlreadyRegisteredError(error);
+      const message = duplicate ? DUPLICATE_EMAIL_MSG : (error instanceof Error ? error.message : "Erro ao criar conta");
       setSignupError(message);
-      setIsDuplicateEmailError(isDuplicateEmail);
+      setIsDuplicateEmailError(duplicate);
       toast.error(message, { id: toastId });
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -396,7 +397,7 @@ export default function Signup() {
                 <div className="relative">
                   <Input 
                     type={showPassword ? "text" : "password"} 
-                    placeholder="Min. 6 caracteres" 
+                    placeholder="Mín. 8 caracteres" 
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
                     className="h-12 rounded-xl bg-card pr-11 shadow-sm" 
@@ -404,6 +405,23 @@ export default function Signup() {
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary">
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 mt-3 bg-secondary/30 rounded-2xl border border-border/50">
+                  {passwordRequirements.map((req, index) => {
+                    const isMet = req.test(password);
+                    return (
+                      <div
+                        key={index}
+                        className={cn(
+                          "flex items-center gap-2 text-[9px] font-black uppercase tracking-tighter transition-all",
+                          isMet ? "text-emerald-500" : "text-muted-foreground/40",
+                        )}
+                      >
+                        {isMet ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <Circle className="w-3.5 h-3.5 opacity-20 shrink-0" />}
+                        {req.label}
+                      </div>
+                    );
+                  })}
                 </div>
               </FormField>
             </div>

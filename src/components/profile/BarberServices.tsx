@@ -1,5 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Scissors } from "lucide-react";
+import { formatDuration } from "@/lib/formatDuration";
 
 interface Service {
   id: string;
@@ -40,7 +41,7 @@ export function BarberServices({ isEditing, allServices, activeIds, onToggle }: 
               />
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{svc.name}</p>
-                <p className="text-xs text-muted-foreground">{svc.duration} min</p>
+                <p className="text-xs text-muted-foreground">{formatDuration(svc.duration)}</p>
               </div>
               <span className="text-sm font-semibold text-primary">
                 R$ {svc.price.toFixed(2).replace(".", ",")}

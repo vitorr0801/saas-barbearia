@@ -12,6 +12,7 @@ import { ProfessionalCard } from "@/components/booking/ProfessionalCard";
 import { TimeSlotGrid } from "@/components/booking/TimeSlotGrid";
 import { Header } from "@/components/Header";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/formatDuration";
 import { BookingAuthRequiredDialog } from "@/components/booking/BookingAuthRequiredDialog";
 import type { BookingCheckoutState } from "@/types/booking";
 
@@ -170,7 +171,7 @@ export default function Index() {
       return (data ?? []).map((row: { id: string; name: string; price: number; duration_min: number }) => ({
         id: row.id,
         name: row.name,
-        duration: `${row.duration_min} min`,
+        duration: formatDuration(row.duration_min),
         price: formatBRL(row.price),
         durationMin: row.duration_min,
         priceNumber: row.price,

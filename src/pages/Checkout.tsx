@@ -15,6 +15,11 @@ import { useAuth } from "@/context/AuthContext";
 import { BookingAuthRequiredDialog } from "@/components/booking/BookingAuthRequiredDialog";
 import { isBookingCheckoutState, type BookingCheckoutState } from "@/types/booking";
 
+/** Valores gravados em `appointments.payment_method`: online (gateway) ou local (balcão). */
+function appointmentPaymentMethod(method: PaymentMethod): "online" | "local" {
+  return method === "presencial" ? "local" : "online";
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,6 +109,8 @@ export default function Checkout() {
         appointment_date: appointmentDateIso,
         status: "pendente",
         total_price: booking.servicePrice,
+        service_name: booking.serviceName,
+        payment_method: appointmentPaymentMethod(paymentMethod),
       });
 
       if (error) throw error;

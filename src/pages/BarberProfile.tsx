@@ -20,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { listMyServiceToggles, toggleMyService, type MasterService } from "@/lib/services-client";
 import { Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/formatDuration";
 import { WORK_DAY_KEYS, type WorkDayKey } from "@/constants/workHours";
 
 const profileSchema = z.object({
@@ -460,7 +461,7 @@ export default function BarberProfile() {
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-foreground truncate">{svc.name}</p>
                             <p className="text-[11px] text-muted-foreground">
-                              R$ {Number(svc.price).toFixed(2).replace(".", ",")} • {svc.duration_min} min
+                              R$ {Number(svc.price).toFixed(2).replace(".", ",")} • {formatDuration(svc.duration_min)}
                             </p>
                           </div>
                           <Switch

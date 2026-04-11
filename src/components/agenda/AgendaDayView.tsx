@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ChevronLeft, ChevronRight, Clock, Loader2, Phone, User, Scissors } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/formatDuration";
 import { toast } from "@/hooks/use-toast";
 
 type AppointmentStatus = "pendente" | "confirmado" | "concluido" | "cancelado" | string;
@@ -253,7 +254,8 @@ export function AgendaDayView() {
             const clientName = apt.client?.name ?? "Cliente";
             const phone = apt.client?.phone ?? "—";
             const serviceName = apt.services?.name ?? "Serviço";
-            const duration = apt.services?.duration_min != null ? `${apt.services.duration_min} min` : "—";
+            const duration =
+              apt.services?.duration_min != null ? formatDuration(apt.services.duration_min) : "—";
             const value = apt.total_price ?? apt.price ?? 0;
             const st = String(apt.status ?? "").toLowerCase();
             const isFinal =

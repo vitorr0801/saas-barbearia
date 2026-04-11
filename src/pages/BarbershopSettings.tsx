@@ -18,6 +18,7 @@ import {
   type MasterService,
   updateMasterServiceClient,
 } from "@/lib/services-client";
+import { formatDuration } from "@/lib/formatDuration";
 
 function parseTags(input: string): string[] {
   return input
@@ -436,7 +437,7 @@ export default function BarbershopSettings() {
                   <div className="min-w-0">
                     <p className="font-semibold text-foreground truncate">{s.name}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      R$ {Number(s.price).toFixed(2).replace(".", ",")} • {s.duration_min} min
+                      R$ {Number(s.price).toFixed(2).replace(".", ",")} • {formatDuration(s.duration_min)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
