@@ -34,6 +34,7 @@ export async function inviteBarberAction(
       data: { user },
       error: authErr,
     } = await supabase.auth.getUser();
+    
     if (authErr || !user) {
       return { error: "Sessão inválida. Faça login novamente." };
     }
@@ -49,55 +50,52 @@ export async function inviteBarberAction(
     }
 
     const admin = createSupabaseAdminClient();
-    const redirectTo = `${siteUrlForRedirect()}/atualizar-senha`;
 
-    const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
+    // 🚀 TIER-1: CRIAÇÃO DO INGRESSO VIP (TOKEN UUID)
+    // Em vez de o frontend criar, o servidor backend toma a responsabilidade.
+    const { data: newInvite, error: inviteErr } = await admin
+      .from("invites")
+      .insert({
+        email: parsedEmail.data,
+        barbearia_id: profile.barbearia_id,
+        status: "pendente",
+      })
+      .select("id")
+      .single();
+
+    if (inviteErr) {
+      return { error: "Falha ao gerar o token de segurança no banco de dados." };
+    }
+
+    // 🔗 MONTAGEM DO LINK BLINDADO
+    // Agora o servidor obriga o Supabase a enviar o e-mail com a nossa Rota Customizada e o Token.
+    const redirectTo = `${siteUrlForRedirect()}/convite-aceito?token=${newInvite.id}`;
+
+    // 📧 DISPARO DO E-MAIL
+    const { data: invited, error: mailErr } = await admin.auth.admin.inviteUserByEmail(
       parsedEmail.data,
       {
         redirectTo,
-        data: { role: "barbeiro" },
+        data: { role: "barbeiro", invite_token: newInvite.id }, // Injeta o token nos metadados por segurança
       },
     );
 
-    if (inviteErr) {
-      return { error: inviteErr.message || "Falha ao enviar convite." };
+    if (mailErr) {
+      // Degradação elegante: Se o e-mail falhar, removemos o convite para não poluir o banco.
+      await admin.from("invites").delete().eq("id", newInvite.id);
+      return { error: mailErr.message || "Falha ao enviar e-mail de convite." };
     }
 
-    const newUser = invited.user;
-    if (!newUser?.id) {
-      return { error: "Convite enviado, mas não foi possível obter o id do usuário." };
-    }
-
-    const displayName =
-      (typeof newUser.user_metadata?.name === "string" && newUser.user_metadata.name.trim()) ||
-      parsedEmail.data.split("@")[0] ||
-      "Profissional";
-
-    const { error: upsertErr } = await admin.from("profiles").upsert(
-      {
-        id: newUser.id,
-        email: newUser.email ?? parsedEmail.data,
-        name: displayName,
-        phone: "",
-        role: "barbeiro",
-        barbearia_id: profile.barbearia_id,
-        is_admin: false,
-        status: "pendente",
-      },
-      { onConflict: "id" },
-    );
-
-    if (upsertErr) {
-      return {
-        error:
-          upsertErr.message ||
-          "Convite enviado, mas falhou ao vincular o perfil. Ajuste o perfil manualmente no Supabase.",
-      };
-    }
+    /* 🧹 OTIMIZAÇÃO DE RECURSOS:
+      Removemos o bloco antigo que fazia um "upsert" na tabela `profiles`.
+      Motivo: Nós já delegamos a responsabilidade de criar/vincular o perfil 
+      para o `AuthCallbackBarbeiro.tsx` no exato momento em que ele aceita o convite.
+      Isso evita bancos de dados cheios de usuários inativos ou duplicados.
+    */
 
     return { error: null, ok: true };
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "Erro ao convidar.";
+    const msg = e instanceof Error ? e.message : "Erro crítico ao processar o convite.";
     return { error: msg };
   }
 }
@@ -117,6 +115,7 @@ export async function removeBarberAction(
       data: { user },
       error: authErr,
     } = await supabase.auth.getUser();
+    
     if (authErr || !user) {
       return { error: "Sessão inválida." };
     }

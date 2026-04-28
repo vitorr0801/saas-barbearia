@@ -204,12 +204,22 @@ export async function upsertBarberServiceToggle(
   return { ok: true };
 }
 
+// 🚀 TIER-1: Expandido para suportar todos os dados do Onboarding
 export type BarbershopSettingsRow = {
   id: string;
   name: string | null;
   neighborhood: string | null;
   categories: string[] | null;
   cover_image: string | null;
+  zip_code: string | null;
+  street: string | null;
+  address_number: string | null;
+  complement: string | null;
+  city: string | null;
+  state: string | null;
+  instagram_url: string | null;
+  phone: string | null;
+  location: any | null;
 };
 
 export async function getBarbershopSettings(
@@ -219,7 +229,8 @@ export async function getBarbershopSettings(
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
     .from("barbearias")
-    .select("id, name, neighborhood, categories, cover_image")
+    // 🚀 O "Feitiço de Abertura": Pede pro banco todas as colunas novas
+    .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, phone, location")
     .eq("id", params.barbeariaId)
     .maybeSingle();
 
@@ -229,14 +240,24 @@ export async function getBarbershopSettings(
   return { ok: true, shop: data as BarbershopSettingsRow };
 }
 
+// 🚀 TIER-1: Expandido para salvar todos os dados
 export async function updateBarbershopSettings(
   env: ServicesEnv,
   params: {
     barbeariaId: string;
     name: string;
-    neighborhood: string;
+    neighborhood?: string;
     categories: string[];
     coverImage: string | null;
+    zip_code?: string | null;
+    street?: string | null;
+    address_number?: string | null;
+    complement?: string | null;
+    city?: string | null;
+    state?: string | null;
+    instagram_url?: string | null;
+    phone?: string | null;
+    location?: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
@@ -247,10 +268,18 @@ export async function updateBarbershopSettings(
       neighborhood: params.neighborhood,
       categories: params.categories,
       cover_image: params.coverImage,
+      zip_code: params.zip_code,
+      street: params.street,
+      address_number: params.address_number,
+      complement: params.complement,
+      city: params.city,
+      state: params.state,
+      instagram_url: params.instagram_url,
+      phone: params.phone,
+      location: params.location,
     })
     .eq("id", params.barbeariaId);
 
   if (error) return { ok: false, message: error.message || "Falha ao atualizar a barbearia." };
   return { ok: true };
 }
-

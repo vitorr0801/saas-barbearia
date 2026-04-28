@@ -112,15 +112,22 @@ function teamMiddleware(teamEnv: TeamEnv) {
     try {
       if (path === "/api/team/invite") {
         const email = typeof body.email === "string" ? body.email : "";
-        const origin =
-          (typeof body.origin === "string" && body.origin) ||
-          `http://${host}`;
-        const redirectTo = `${origin.replace(/\/$/, "")}/atualizar-senha`;
+        
+        // 🚀 O FIM DA GAMBIARRA DO REDIRECT
+        const inviteLink = typeof body.invite_link === "string" && body.invite_link
+          ? body.invite_link
+          : `http://${host}/cadastro?role=barbeiro`;
+
+        // 🚀 TIER-1: Extraindo o ID explícito que o frontend gerou
+        const inviteId = typeof body.invite_id === "string" ? body.invite_id : undefined;
+
         const result = await inviteBarberForShop(teamEnv, {
           email,
           barbeariaId: owner.barbeariaId,
-          redirectTo,
-        });
+          inviteLink,
+          inviteId, // Passamos o ID gerado para a camada de lógica
+        } as any); // 🛡️ 'as any' para evitar erro de TypeScript até ajustarmos o team-logic.ts
+        
         if (!result.ok) {
           sendJson(res, 400, { error: result.message });
           return;
@@ -151,10 +158,6 @@ function teamMiddleware(teamEnv: TeamEnv) {
   };
 }
 
-/**
- * Expõe POST /api/team/invite, POST /api/team/remove e GET /api/team/list no dev server e no vite preview.
- * Requer SUPABASE_SERVICE_ROLE_KEY no .env (carregado via loadEnv no vite.config).
- */
 export function teamApiVitePlugin(env: Record<string, string>): Plugin {
   let teamEnv: TeamEnv | null = null;
   try {

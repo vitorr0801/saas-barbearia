@@ -100,20 +100,32 @@ function servicesMiddleware(env: ServicesEnv) {
       } catch {
         return sendJson(res, 400, { error: "JSON inválido." });
       }
+      
       const name = typeof body.name === "string" ? body.name.trim() : "";
       const neighborhood = typeof body.neighborhood === "string" ? body.neighborhood.trim() : "";
       const categories = Array.isArray(body.categories) ? body.categories.filter((c: any) => typeof c === "string") : [];
       const coverImage = typeof body.cover_image === "string" && body.cover_image.trim() ? body.cover_image.trim() : null;
+      
       if (!name || name.length < 2) return sendJson(res, 400, { error: "Nome inválido." });
-      if (!neighborhood || neighborhood.length < 2) return sendJson(res, 400, { error: "Bairro inválido." });
 
+      // 🚀 TIER-1: Coletando o Payload Completo
       const result = await updateBarbershopSettings(env, {
         barbeariaId: who.barbeariaId,
         name,
         neighborhood,
         categories,
         coverImage,
+        zip_code: typeof body.zip_code === "string" ? body.zip_code.trim() : null,
+        street: typeof body.street === "string" ? body.street.trim() : null,
+        address_number: typeof body.address_number === "string" ? body.address_number.trim() : null,
+        complement: typeof body.complement === "string" ? body.complement.trim() : null,
+        city: typeof body.city === "string" ? body.city.trim() : null,
+        state: typeof body.state === "string" ? body.state.trim() : null,
+        instagram_url: typeof body.instagram_url === "string" ? body.instagram_url.trim() : null,
+        phone: typeof body.phone === "string" ? body.phone.trim() : null,
+        location: body.location !== undefined ? body.location : null,
       });
+
       if (!result.ok) return sendJson(res, 400, { error: result.message });
       return sendJson(res, 200, { ok: true });
     }
@@ -260,4 +272,3 @@ export function servicesApiVitePlugin(envVars: Record<string, string>): Plugin {
     },
   };
 }
-

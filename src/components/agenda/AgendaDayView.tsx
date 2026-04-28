@@ -1,134 +1,109 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Loader2, Phone, User, Scissors } from "lucide-react";
+import { 
+  Calendar, 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  Loader2, 
+  User, 
+  Scissors, 
+  CheckCircle2, 
+  XCircle,
+  Phone,
+  UserCircle
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDuration } from "@/lib/formatDuration";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { startOfDay, endOfDay, format, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-type AppointmentStatus = "pendente" | "confirmado" | "concluido" | "cancelado" | string;
+interface AgendaDayViewProps {
+  selectedDay: Date;
+  onSelectedDayChange: (d: Date) => void;
+  filterProfessionalId?: string | null;
+}
 
 type AgendaRow = {
   id: string;
   appointment_date: string;
-  status: AppointmentStatus;
+  status: string;
   total_price: number | null;
-  price: number | null;
   professional_id: string | null;
   client: { name: string | null; phone: string | null } | null;
   services: { name: string | null; duration_min: number | null } | null;
   professional: { name: string | null } | null;
 };
 
-function toLocalDateKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+const formatDuration = (minutes: number | null | undefined) => {
+  if (!minutes) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
 
-function startOfLocalDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-}
-
-function endOfLocalDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-}
-
-function parseLocalDateKey(key: string): Date {
-  const [y, m, day] = key.split("-").map(Number);
-  return new Date(y, m - 1, day, 12, 0, 0, 0);
-}
-
-function formatDisplayDate(d: Date): string {
-  return d.toLocaleDateString("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
-}
-
-function statusBadgeClass(status: string): string {
-  const s = status?.toLowerCase() ?? "";
+const getStatusConfig = (status: string) => {
+  const s = status?.toLowerCase() || "";
   if (s === "concluido" || s === "completed") {
-    return "border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+    return { label: "Concluído", class: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" };
   }
   if (s === "cancelado" || s === "canceled" || s === "cancelled") {
-    return "border-destructive/40 bg-destructive/10 text-destructive line-through decoration-destructive/50";
+    return { label: "Cancelado", class: "border-destructive/30 bg-destructive/10 text-destructive line-through" };
   }
-  if (s === "confirmado") {
-    return "border-sky-500/40 bg-sky-500/15 text-sky-600 dark:text-sky-400";
-  }
-  return "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-400";
-}
+  return { label: "Pendente", class: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
+};
 
-function statusLabel(status: string): string {
-  const s = status?.toLowerCase() ?? "";
-  if (!s) return "—";
-  if (s === "pending") return "Pendente";
-  if (s === "canceled" || s === "cancelled") return "Cancelado";
-  if (s === "completed") return "Concluído";
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-export function AgendaDayView() {
+export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessionalId }: AgendaDayViewProps) {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
+
   const isAdmin = Boolean(currentUser?.is_admin);
-  const barbeariaId = currentUser?.barbearia_id ?? null;
-  const userId = currentUser?.id ?? null;
+  const barbeariaId = currentUser?.barbearia_id;
+  const userId = currentUser?.id;
 
-  const [selectedDay, setSelectedDay] = useState(() => startOfLocalDay(new Date()));
-
-  const dateKey = useMemo(() => toLocalDateKey(selectedDay), [selectedDay]);
-
-  const dayStart = useMemo(() => startOfLocalDay(selectedDay), [selectedDay]);
-  const dayEnd = useMemo(() => endOfLocalDay(selectedDay), [selectedDay]);
-
-  const queryEnabled = Boolean(userId) && (isAdmin ? Boolean(barbeariaId) : true);
+  const isoRange = useMemo(() => {
+    const safeDate = isValid(selectedDay) ? selectedDay : new Date();
+    return {
+      start: startOfDay(safeDate).toISOString(),
+      end: endOfDay(safeDate).toISOString()
+    };
+  }, [selectedDay]);
 
   const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ["daily-agenda", userId, isAdmin, barbeariaId, dateKey],
+    queryKey: ["daily-agenda", barbeariaId, userId, isoRange, filterProfessionalId],
     queryFn: async (): Promise<AgendaRow[]> => {
-      if (!userId) return [];
+      if (!barbeariaId || !userId) return [];
 
       let q = supabase
         .from("appointments")
-        .select(
-          `
-          id,
-          appointment_date,
-          status,
-          total_price,
-          price,
-          professional_id,
+        .select(`
+          id, appointment_date, status, total_price, professional_id,
           client:profiles!client_id ( name, phone ),
           services:service_id ( name, duration_min ),
           professional:profiles!professional_id ( name )
-        `,
-        )
-        .gte("appointment_date", dayStart.toISOString())
-        .lte("appointment_date", dayEnd.toISOString())
+        `)
+        .eq("barbearia_id", barbeariaId)
+        .gte("appointment_date", isoRange.start)
+        .lte("appointment_date", isoRange.end)
         .order("appointment_date", { ascending: true });
 
-      if (isAdmin) {
-        if (!barbeariaId) return [];
-        q = q.eq("barbearia_id", barbeariaId);
-      } else {
+      if (!isAdmin) {
         q = q.eq("professional_id", userId);
+      } else if (filterProfessionalId && filterProfessionalId !== "__all__") {
+        q = q.eq("professional_id", filterProfessionalId);
       }
 
       const { data, error } = await q;
       if (error) throw error;
-
-      return (data ?? []) as AgendaRow[];
+      return (data as unknown as AgendaRow[]) || [];
     },
-    enabled: queryEnabled,
+    enabled: !!barbeariaId && !!userId,
   });
 
   const updateStatus = useMutation({
@@ -136,212 +111,164 @@ export function AgendaDayView() {
       const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: (_, v) => {
-      void queryClient.invalidateQueries({ queryKey: ["daily-agenda"] });
-      void queryClient.invalidateQueries({ queryKey: ["booked-slots"] });
-      void queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      toast({
-        title: v.status === "concluido" ? "Atendimento concluído" : "Agendamento cancelado",
-        description: "A agenda foi atualizada.",
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["daily-agenda"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      toast.success("Status atualizado com sucesso!"); 
     },
-    onError: (e: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Não foi possível atualizar",
-        description: e.message,
-      });
-    },
+    onError: () => toast.error("Falha ao atualizar status."),
   });
 
-  const goToday = () => setSelectedDay(startOfLocalDay(new Date()));
-  const goTomorrow = () => {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    setSelectedDay(startOfLocalDay(t));
-  };
   const shiftDay = (delta: number) => {
-    const n = new Date(selectedDay);
-    n.setDate(n.getDate() + delta);
-    setSelectedDay(startOfLocalDay(n));
+    const next = new Date(selectedDay);
+    if (!isValid(next)) return;
+    next.setDate(next.getDate() + delta);
+    onSelectedDayChange(next);
   };
-
-  const isToday = toLocalDateKey(selectedDay) === toLocalDateKey(new Date());
 
   if (!userId) return null;
 
-  if (isAdmin && !barbeariaId) {
-    return (
-      <section className="dash-card w-full border-dashed p-6 md:p-8">
-        <h2 className="text-base font-black uppercase italic tracking-tight text-foreground">Agenda do dia</h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Associe sua conta a uma barbearia para ver a agenda da equipe.
-        </p>
-      </section>
-    );
-  }
-
   return (
-    <section className="dash-card w-full space-y-5 md:space-y-6 p-5 md:p-8">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-8">
-        <div className="min-w-0">
-          <h2 className="text-base md:text-lg font-black uppercase italic tracking-tight text-foreground flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary shrink-0" />
-            Agenda do dia
+    <section className="dash-card w-full space-y-6 p-5 md:p-8 bg-card/40 backdrop-blur-md border-border/50">
+      
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-border/50 pb-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-black uppercase italic tracking-tight text-foreground flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Agenda do Dia
           </h2>
-          <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1.5">
-            {isAdmin ? "Todos os profissionais da barbearia" : "Seus horários"}
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
+            {isValid(selectedDay) ? format(selectedDay, "EEEE, dd 'de' MMMM", { locale: ptBR }) : "Data Inválida"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
-          <Button
-            type="button"
-            variant={isToday ? "default" : "outline"}
-            size="sm"
-            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wide"
-            onClick={goToday}
-          >
-            Hoje
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-background/50 p-1.5">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftDay(-1)}>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wide"
-            onClick={goTomorrow}
-          >
-            Amanhã
-          </Button>
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-background/80 p-1">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => shiftDay(-1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-[9rem] text-center text-xs font-bold text-foreground capitalize px-2">
-              {formatDisplayDate(selectedDay)}
-            </span>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => shiftDay(1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          <div className="px-4 text-[10px] font-black uppercase tracking-widest text-foreground tabular-nums">
+            {isValid(selectedDay) ? format(selectedDay, "dd/MM/yyyy") : "--/--/----"}
           </div>
-          <input
-            type="date"
-            value={dateKey}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              setSelectedDay(startOfLocalDay(parseLocalDateKey(v)));
-            }}
-            className="h-9 rounded-xl border border-border bg-background px-3 text-xs font-medium text-foreground min-w-[10rem]"
-          />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftDay(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
+      {/* BODY */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 md:py-24 text-muted-foreground gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-xs font-bold uppercase tracking-wider">Carregando agenda…</span>
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground animate-pulse">Sincronizando Agenda...</p>
         </div>
       ) : appointments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-secondary/20 py-16 md:py-20 text-center w-full">
-          <p className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest">Nenhum agendamento neste dia</p>
+        <div className="flex flex-col items-center justify-center py-20 px-6 rounded-3xl border-2 border-dashed border-border/40 bg-muted/5 text-center">
+          <Calendar className="h-8 w-8 text-primary/20 mb-4" />
+          <p className="text-sm font-black uppercase italic text-foreground">Dia Livre</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Sem compromissos para esta data</p>
         </div>
       ) : (
-        <ul className="space-y-3 md:space-y-4 w-full">
+        <div className="grid gap-4">
           {appointments.map((apt) => {
-            const dt = new Date(apt.appointment_date);
-            const timeStr = dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-            const clientName = apt.client?.name ?? "Cliente";
-            const phone = apt.client?.phone ?? "—";
-            const serviceName = apt.services?.name ?? "Serviço";
-            const duration =
-              apt.services?.duration_min != null ? formatDuration(apt.services.duration_min) : "—";
-            const value = apt.total_price ?? apt.price ?? 0;
-            const st = String(apt.status ?? "").toLowerCase();
-            const isFinal =
-              st === "concluido" ||
-              st === "completed" ||
-              st === "cancelado" ||
-              st === "canceled" ||
-              st === "cancelled";
-            const barberName = apt.professional?.name;
+            const statusConfig = getStatusConfig(apt.status);
+            const isFinished = ["concluido", "completed", "cancelado", "canceled"].includes(apt.status?.toLowerCase());
+            
+            // 🛡️ REGRA DE OURO: O usuário só pode gerir o que for DELE
+            const isOwnerOfApt = apt.professional_id === userId;
+            const canManage = isOwnerOfApt && !isFinished;
+
+            const clientName = apt.client?.name || "Agendamento Manual";
+            const professionalName = apt.professional?.name || "Indefinido";
 
             return (
-              <li
-                key={apt.id}
-                className={cn(
-                  "rounded-xl border border-border bg-background/60 w-full transition-colors",
-                  "p-4 md:p-5 lg:p-6",
-                  "grid grid-cols-1 xl:grid-cols-[minmax(8rem,auto)_1fr_auto] gap-4 md:gap-6 items-start xl:items-center",
-                  st === "cancelado" || st === "canceled" ? "opacity-70" : "",
-                )}
-              >
-                <div className="flex items-center gap-3 md:gap-4 shrink-0">
-                  <div className="flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Clock className="h-5 w-5 md:h-6 md:w-6" />
+              <div key={apt.id} className={cn(
+                "group relative overflow-hidden rounded-2xl border border-border/60 bg-background/40 p-5 transition-all hover:bg-card/60",
+                isFinished && "opacity-60",
+                !isOwnerOfApt && "border-l-4 border-l-muted" // Indicador visual de que não é seu
+              )}>
+                <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                  
+                  {/* HORÁRIO */}
+                  <div className="flex items-center gap-4 shrink-0 lg:border-r lg:border-border/50 lg:pr-6">
+                    <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Clock className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-black tabular-nums tracking-tighter">
+                        {format(new Date(apt.appointment_date), "HH:mm")}
+                      </p>
+                      <Badge variant="outline" className="mt-2 text-[9px] font-black uppercase text-primary border-primary/30">
+                        {formatDuration(apt.services?.duration_min)}
+                      </Badge>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xl md:text-2xl font-black tabular-nums text-foreground leading-none">{timeStr}</p>
-                    <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-1.5">
-                      <Scissors className="h-3 w-3 shrink-0" />
-                      {duration}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex-1 min-w-0 space-y-1.5 md:space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[10px] font-black uppercase tracking-wider", statusBadgeClass(apt.status))}
-                    >
-                      {statusLabel(apt.status)}
-                    </Badge>
-                    {isAdmin && barberName && (
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">• {barberName}</span>
+                  {/* INFO DO CORTE E CLIENTE */}
+                  <div className="flex-1 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className={cn("text-[9px] font-black uppercase tracking-widest", statusConfig.class)}>
+                        {statusConfig.label}
+                      </Badge>
+                      
+                      {/* 👤 INDICADOR DE PROFISSIONAL: Crucial para o Dono */}
+                      <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-secondary/50 text-muted-foreground">
+                        <UserCircle className="mr-1 h-3 w-3" /> {isOwnerOfApt ? "Meu Horário" : professionalName}
+                      </Badge>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-tight flex items-center gap-2 text-foreground">
+                        <User className="h-4 w-4 text-primary" />
+                        {clientName}
+                      </p>
+                      
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                        <p className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                          <Scissors className="h-3.5 w-3.5" />
+                          {apt.services?.name} • 
+                          <span className="text-primary/80">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(apt.total_price || 0)}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AÇÕES (BOTÕES BLOQUEADOS SE NÃO FOR O DONO) */}
+                  <div className="flex items-center gap-2 lg:pl-6 border-t border-border/50 lg:border-t-0 pt-4 lg:pt-0">
+                    {canManage ? (
+                      <>
+                        <Button 
+                          disabled={updateStatus.isPending}
+                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'concluido' })}
+                          className="rounded-xl h-10 px-5 text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white shadow-none transition-transform active:scale-95"
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" /> Concluir
+                        </Button>
+                        <Button 
+                          disabled={updateStatus.isPending}
+                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'cancelado' })}
+                          variant="outline"
+                          className="rounded-xl h-10 px-4 text-[10px] font-black uppercase tracking-widest border-destructive/20 text-destructive hover:bg-destructive/10"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      !isFinished && (
+                        <p className="text-[9px] font-bold uppercase text-muted-foreground italic px-4 py-2 bg-muted/20 rounded-lg border border-border/40">
+                          Somente visualização
+                        </p>
+                      )
                     )}
                   </div>
-                  <p className="text-base md:text-lg font-bold text-foreground flex items-center gap-2 break-words">
-                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                    {clientName}
-                  </p>
-                  <p className="text-sm text-muted-foreground flex items-center gap-2 break-all">
-                    <Phone className="h-4 w-4 shrink-0" />
-                    {phone}
-                  </p>
-                  <p className="text-sm md:text-base text-foreground">
-                    <span className="text-muted-foreground">Serviço:</span> {serviceName}
-                  </p>
-                  <p className="text-base md:text-lg font-bold text-primary">
-                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value))}
-                  </p>
-                </div>
 
-                <div className="flex flex-wrap xl:flex-col gap-2 shrink-0 w-full xl:w-auto xl:min-w-[9rem]">
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isFinal || updateStatus.isPending}
-                    className="rounded-xl h-10 text-[10px] font-black uppercase tracking-wide flex-1 xl:flex-none bg-emerald-600 hover:bg-emerald-600/90 text-white"
-                    onClick={() => updateStatus.mutate({ id: apt.id, status: "concluido" })}
-                  >
-                    Concluir
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isFinal || updateStatus.isPending}
-                    className="rounded-xl h-10 text-[10px] font-black uppercase tracking-wide flex-1 xl:flex-none border-destructive/50 text-destructive hover:bg-destructive/10"
-                    onClick={() => updateStatus.mutate({ id: apt.id, status: "cancelado" })}
-                  >
-                    Cancelar
-                  </Button>
                 </div>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </div>
       )}
     </section>
   );

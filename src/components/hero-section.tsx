@@ -21,7 +21,7 @@ export const HeroSection = React.memo(() => {
 
   /**
    * 🔀 ESTRATÉGIA DE CONVERSÃO UNIFICADA (GUEST MODE)
-   * Ajustado para direcionar o barbeiro diretamente ao fluxo de criação de conta.
+   * 100% alinhada com as portas blindadas do App.tsx
    */
   const ctaContent = useMemo(() => {
     if (!isAuthenticated) {
@@ -29,13 +29,14 @@ export const HeroSection = React.memo(() => {
         primary: {
           label: "SOU BARBEIRO: GESTÃO DE ELITE",
           desc: "Quero profissionalizar meu negócio hoje",
-          // 🎯 SINAL DE ELITE: Envia o modo 'signup' para pular o login padrão
-          path: "/cadastro?role=barbeiro&mode=signup", 
+          // 🚀 CORREÇÃO MESTRA: Rota direta para a porta do barbeiro
+          path: "/login-barbeiro", 
           icon: <TrendingUp className="w-5 h-5" />
         },
         secondary: {
           label: "SOU CLIENTE: AGENDAR CORTE",
           desc: "Explorar barbearias e estilos agora",
+          // Clientes podem ir para /descobrir e o sistema pedirá login na hora de agendar
           path: "/descobrir",
           icon: <Calendar className="w-5 h-5" />
         }
@@ -120,7 +121,7 @@ export const HeroSection = React.memo(() => {
 
           {/* 🔀 CTAs Adaptativos (Otimizados para Conversão) */}
           <div className="flex flex-col md:flex-row items-stretch justify-center gap-6 mb-24 max-w-4xl mx-auto">
-            {/* Botão Primário: Barbeiro ou Ação Principal */}
+            {/* Botão Primário */}
             <button 
               onClick={() => handleNavigation(ctaContent.primary.path)}
               className="group relative flex flex-col items-center gap-1 px-10 py-6 bg-primary text-primary-foreground rounded-3xl transition-all hover:scale-[1.03] hover:shadow-[0_20px_50px_rgba(245,158,11,0.3)] active:scale-[0.98]"
@@ -133,7 +134,7 @@ export const HeroSection = React.memo(() => {
               <span className="text-[10px] opacity-70 font-black uppercase tracking-widest">{ctaContent.primary.desc}</span>
             </button>
 
-            {/* Botão Secundário: Cliente ou Ação Secundária */}
+            {/* Botão Secundário */}
             <button 
               onClick={() => handleNavigation(ctaContent.secondary.path)}
               className="group flex flex-col items-center gap-1 px-10 py-6 bg-card border border-border rounded-3xl transition-all hover:bg-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm"

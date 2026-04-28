@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { generateSlotsFromShift, normalizeTimeHHMM, ptBrDateToDayKey } from "@/lib/bookingSlots";
+import { generateSlotsFromShift, normalizeTimeHHMM } from "@/lib/bookingSlots"; // Removemos o ptBrDateToDayKey (não precisamos mais de strings!)
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceCard } from "@/components/booking/ServiceCard";
@@ -44,18 +44,8 @@ function CalendarPicker({ selectedDate, onSelect }: { selectedDate: string; onSe
 
   const daysShort = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const months = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
   ];
 
   const renderDays = () => {
@@ -223,23 +213,32 @@ export default function Index() {
     [professionals, selectedProfessional],
   );
 
-  const dayKey = useMemo(() => ptBrDateToDayKey(selectedDate), [selectedDate]);
+  // 🚀 TIER-1: Tradução direta da Data escolhida para Inteiro (0 a 6)
+  // O Javascript nativo converte isso perfeitamente e combinando com o Postgres.
+  const dayOfWeekInt = useMemo(() => {
+    if (!selectedDate) return null;
+    const [day, month, year] = selectedDate.split("/").map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    return dateObj.getDay(); // Retorna 0 para Dom, 1 para Seg, etc.
+  }, [selectedDate]);
 
   const { data: workHourRow, isLoading: isLoadingWorkHours } = useQuery({
-    queryKey: ["barber-work-hours", selectedProfessional, dayKey],
+    queryKey: ["barber-work-hours", selectedProfessional, dayOfWeekInt],
     queryFn: async () => {
-      if (!selectedProfessional || !dayKey) return null;
+      if (!selectedProfessional || dayOfWeekInt === null) return null;
+      
       const { data, error } = await supabase
         .from("barber_work_hours")
         .select("start_time, end_time")
         .eq("barber_id", selectedProfessional)
-        .eq("day", dayKey)
+        // 🚀 CORREÇÃO CIRÚRGICA: Coluna "day_of_week" e valor "dayOfWeekInt" (Integer)
+        .eq("day_of_week", dayOfWeekInt) 
         .maybeSingle();
 
       if (error) throw error;
       return data as { start_time: string; end_time: string } | null;
     },
-    enabled: !!selectedProfessional && !!dayKey && !!selectedService && !!shopId,
+    enabled: !!selectedProfessional && dayOfWeekInt !== null && !!selectedService && !!shopId,
   });
 
   const { data: occupiedSlots = [], isLoading: isLoadingOccupied } = useQuery({
@@ -274,9 +273,9 @@ export default function Index() {
     !!(selectedService && selectedProfessional && shopId) && (isLoadingWorkHours || isLoadingOccupied);
 
   const dynamicTimeSlots = useMemo(() => {
-    if (!selectedServiceRow || !selectedProfessional || !dayKey) return [];
+    if (!selectedServiceRow || !selectedProfessional || dayOfWeekInt === null) return [];
 
-    if (!workHourRow) return [];
+    if (!workHourRow) return []; // Se não houver horário gravado para esse dia da semana, retorna lista vazia.
 
     const start = normalizeTimeHHMM(workHourRow.start_time);
     const end = normalizeTimeHHMM(workHourRow.end_time);
@@ -300,7 +299,7 @@ export default function Index() {
         available: !isPast && !isBooked,
       };
     });
-  }, [selectedDate, selectedProfessional, selectedServiceRow, workHourRow, dayKey, occupiedSlots]);
+  }, [selectedDate, selectedProfessional, selectedServiceRow, workHourRow, dayOfWeekInt, occupiedSlots]);
 
   const isBookingReady = selectedService && selectedProfessional && selectedDate && selectedTime;
 

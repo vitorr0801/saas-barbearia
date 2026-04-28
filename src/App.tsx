@@ -9,34 +9,38 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 /**
- * 🚀 OTIMIZAÇÃO: LAZY LOADING
- * Carregamos as páginas sob demanda para ganho de performance brutal.
+ * 🚀 OTIMIZAÇÃO TIER-1: LAZY LOADING
  */
-const Index = lazy(() => import("./pages/Index"));
 const Landing = lazy(() => import("./pages/Landing"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const Financial = lazy(() => import("./pages/Financial"));
-const Checkout = lazy(() => import("./pages/Checkout"));
 const Products = lazy(() => import("./pages/Products"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Workstation = lazy(() => import("./pages/Workstation"));
 const ClientProfile = lazy(() => import("./pages/ClientProfile"));
 const BarberProfile = lazy(() => import("./pages/BarberProfile"));
 const BarbershopSettings = lazy(() => import("./pages/BarbershopSettings"));
-const Signup = lazy(() => import("./pages/Signup"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MyAppointments = lazy(() => import("./pages/MyAppointments"));
 const Favorites = lazy(() => import("./pages/Favorites"));
 const Team = lazy(() => import("./pages/Team"));
+const Index = lazy(() => import("./pages/Index"));
+const Checkout = lazy(() => import("./pages/Checkout"));
 const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
+
+const SignupCliente = lazy(() => import("./pages/auth/SignupCliente"));
+const SignupBarbeiro = lazy(() => import("./pages/auth/SignupBarbeiro"));
+const WelcomeBarber = lazy(() => import("./pages/auth/WelcomeBarber")); 
+const AuthCallback = lazy(() => import("./pages/AuthCallback")); 
+const AuthCallbackBarbeiro = lazy(() => import("./pages/AuthCallbackBarbeiro"));
 
 const queryClient = new QueryClient();
 
 /**
- * 🌀 LOADING SCREEN DE ALTA FIDELIDADE
+ * 🌀 LOADING UI PREMIUM
  */
 const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) => (
   <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0a0c12]">
@@ -51,10 +55,9 @@ const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) =
 );
 
 /**
- * 🛡️ PROTECTED ROUTE (Refinado para Redirecionamento Contextual)
+ * 🛡️ PROTECTED ROUTE (Arquitetura de Fluxo Unificado)
+ * Ajustada para diferenciar DONOS de BARBEIROS CONVIDADOS.
  */
-const ONBOARDING_PATHS = ["/onboarding", "/setup"];
-
 function ProtectedRoute({
   children,
   allowedRoles,
@@ -67,36 +70,40 @@ function ProtectedRoute({
   const { isAuthenticated, role, isLoading, currentUser } = useAuth();
   const location = useLocation();
 
-  if (isLoading || (isAuthenticated && !role)) {
-    return <LoadingScreen message="Validando credenciais..." />; 
-  }
+  if (isLoading) return <LoadingScreen message="Validando acesso..." />;
 
+  // 1. Verificação de Autenticação
   if (!isAuthenticated) {
-    // 💡 UX de Elite: Salvamos de onde o usuário veio para devolvê-lo após o login
-    return <Navigate to="/cadastro" replace state={{ from: location }} />;
+    const isBarberRoute = ["dashboard", "onboarding", "financeiro", "equipe", "produtos", "agendamentos"].some(
+      path => location.pathname.includes(path)
+    );
+    const loginTarget = isBarberRoute ? "/login-barbeiro" : "/login-cliente";
+    return <Navigate to={loginTarget} replace state={{ from: location }} />;
   }
 
+  if (!role) return <LoadingScreen message="Sincronizando perfil..." />;
+
+  // 2. Verificação de Papel (Role)
   if (allowedRoles && !allowedRoles.includes(role as any)) {
     return <Navigate to="/" replace />;
   }
 
-  if (
-    requireBarberAdmin &&
-    role === "barbeiro" &&
-    currentUser &&
-    !currentUser.is_admin
-  ) {
+  // 3. Verificação de Admin (Apenas para rotas restritas ao Dono)
+  if (requireBarberAdmin && role === "barbeiro" && !currentUser?.is_admin) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (role === "barbeiro" && !currentUser?.barbearia_id) {
-    if (!ONBOARDING_PATHS.includes(location.pathname)) {
-      return <Navigate to="/onboarding" replace />;
-    }
-  }
+  /**
+   * 🚀 AJUSTE MUNDIAL: BIFURCAÇÃO DE ONBOARDING
+   * Só enviamos para o Onboarding (Setup) se:
+   * - O usuário for barbeiro
+   * - NÃO tiver barbearia vinculada
+   * - FOR o administrador (Dono)
+   */
+  const isDonoSemBarbearia = role === "barbeiro" && !currentUser?.barbearia_id && currentUser?.is_admin;
 
-  if (role === "barbeiro" && currentUser?.barbearia_id && ONBOARDING_PATHS.includes(location.pathname)) {
-    return <Navigate to="/dashboard" replace />;
+  if (isDonoSemBarbearia && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return children;
@@ -108,40 +115,44 @@ function ProtectedRoute({
 const HomeRedirect = () => {
   const { isAuthenticated, role, isLoading, currentUser } = useAuth();
 
-  if (isLoading || (isAuthenticated && !role)) {
-    return <LoadingScreen message="Preparando seu acesso..." />;
-  }
-
+  if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Landing />;
   
-  if (role === "barbeiro" && !currentUser?.barbearia_id) {
-    return <Navigate to="/onboarding" replace />;
-  }
   if (role === "barbeiro") {
-    return <Navigate to="/dashboard" replace />;
+    /**
+     * Padrão Mundial: Se o barbeiro convidado já tem barbearia_id, 
+     * ele nunca deve ver a tela de onboarding.
+     */
+    const targetPath = (currentUser?.barbearia_id || !currentUser?.is_admin) 
+      ? "/dashboard" 
+      : "/onboarding";
+      
+    return <Navigate to={targetPath} replace />;
   }
+  
   return <Navigate to="/descobrir" replace />;
 };
 
 const AppRoutes = () => {
   return (
     <BrowserRouter>
-      {/* O Suspense gerencia o tempo de carregamento dos arquivos 'lazy' */}
       <Suspense fallback={<LoadingScreen message="Carregando interface..." />}>
         <Routes>
-          {/* --- ROTAS PÚBLICAS --- */}
           <Route path="/" element={<HomeRedirect />} />
-          <Route path="/cadastro" element={<Signup />} />
+          
+          <Route path="/login-cliente" element={<SignupCliente />} />
+          <Route path="/login-barbeiro" element={<SignupBarbeiro />} />
+          <Route path="/convite-aceito" element={<WelcomeBarber />} />
+          
+          <Route path="/cadastro" element={<Navigate to="/login-cliente" replace />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/atualizar-senha" element={<ResetPassword />} />
-          
-          {/* 🎯 ACESSO CONVIDADO: ClientPortal e Agendamento agora são abertos */}
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/callback-barbeiro" element={<AuthCallbackBarbeiro />} />
           <Route path="/descobrir" element={<ClientPortal />} />
           <Route path="/agendar" element={<Index />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/sucesso" element={<BookingSuccess />} />
           
-          {/* --- ROTAS PROTEGIDAS: BARBEIRO --- */}
+          {/* --- ECOSSISTEMA PARCEIRO --- */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Dashboard /></ProtectedRoute>} />
           <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Agenda /></ProtectedRoute>} />
           <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Financial /></ProtectedRoute>} />
@@ -149,14 +160,15 @@ const AppRoutes = () => {
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><BarbershopSettings /></ProtectedRoute>} />
           <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Team /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
-          <Route path="/setup" element={<Navigate to="/onboarding" replace />} />
           <Route path="/bancada" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Workstation /></ProtectedRoute>} />
           <Route path="/perfil/barbeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]}><BarberProfile /></ProtectedRoute>} />
 
-          {/* --- ROTAS PROTEGIDAS: CLIENTE --- */}
+          {/* --- ECOSSISTEMA CLIENTE --- */}
           <Route path="/meus-agendamentos" element={<ProtectedRoute allowedRoles={["cliente"]}><MyAppointments /></ProtectedRoute>} />
           <Route path="/perfil/cliente" element={<ProtectedRoute allowedRoles={["cliente"]}><ClientProfile /></ProtectedRoute>} />
           <Route path="/favoritos" element={<ProtectedRoute allowedRoles={["cliente", "barbeiro"]}><Favorites /></ProtectedRoute>} />
+          <Route path="/checkout" element={<ProtectedRoute allowedRoles={["cliente"]}><Checkout /></ProtectedRoute>} />
+          <Route path="/sucesso" element={<ProtectedRoute allowedRoles={["cliente"]}><BookingSuccess /></ProtectedRoute>} />
 
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -169,7 +181,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" closeButton richColors />
       <AuthProvider>
         <AppRoutes />
       </AuthProvider>

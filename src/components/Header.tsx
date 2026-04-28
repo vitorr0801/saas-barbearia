@@ -32,7 +32,9 @@ export function Header() {
     "/setup",
     "/perfil/barbeiro",
     "/equipe",
+    "/dashboard/configuracoes" // Garantia de que a sub-rota mantém o menu de barbeiro
   ];
+
   const isBarberWorkspace =
     isAuthenticated &&
     role === "barbeiro" &&
@@ -76,7 +78,8 @@ export function Header() {
         description: "Entre ou crie sua conta para acessar estas funcionalidades.",
         action: {
           label: "Entrar",
-          onClick: () => navigate("/cadastro?role=cliente")
+          // 🚀 CORREÇÃO: Aponta direto para a porta do cliente
+          onClick: () => navigate("/login-cliente")
         },
       });
       return;
@@ -167,7 +170,7 @@ export function Header() {
                 {isDiscoveryPage ? (
                   /* PORTAL DO CLIENTE: Entrar */
                   <Button 
-                    onClick={() => navigate("/cadastro?role=cliente")} 
+                    onClick={() => navigate("/login-cliente")} 
                     variant="outline"
                     className="h-10 px-8 bg-white/5 border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-white/10 transition-all active:scale-95 shadow-sm"
                   >
@@ -182,9 +185,9 @@ export function Header() {
                     >
                       Sou Cliente
                     </button>
-                    {/* Botão Acessar Unificado: Agora é o único botão primário no Header deslogado */}
+                    {/* 🚀 CORREÇÃO MESTRA: Botão Acessar apontando para o Barbeiro */}
                     <Button 
-                      onClick={() => navigate("/cadastro?role=barbeiro")} 
+                      onClick={() => navigate("/login-barbeiro")} 
                       className="h-10 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
                     >
                       Acessar
@@ -259,7 +262,7 @@ export function Header() {
                   title="Meu perfil"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/15 text-white hover:border-primary/50 hover:text-primary transition-colors"
                 >
-                  <UserCircle className="w-5 h-5" strokeWidth={1.75} />
+                  <UserCircle className="w-5 h-5 strokeWidth={1.75}" />
                 </Link>
                 <button
                   type="button"
@@ -267,7 +270,7 @@ export function Header() {
                   title="Sair"
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 transition-colors"
                 >
-                  <LogOut className="w-5 h-5" strokeWidth={1.75} />
+                  <LogOut className="w-5 h-5 strokeWidth={1.75}" />
                 </button>
               </div>
             ) : (
@@ -304,8 +307,9 @@ export function Header() {
             <div className="flex flex-col gap-6 px-2">
               {!isAuthenticated ? (
                 <>
+                  {/* 🚀 CORREÇÃO MOBILE: Aponta para as portas corretas e blindadas */}
                   <Button 
-                    onClick={() => { navigate(isDiscoveryPage ? "/cadastro?role=cliente" : "/cadastro?role=barbeiro"); setIsMenuOpen(false); }} 
+                    onClick={() => { navigate(isDiscoveryPage ? "/login-cliente" : "/login-barbeiro"); setIsMenuOpen(false); }} 
                     className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl"
                   >
                     {isDiscoveryPage ? "Entrar na Conta" : "Acessar Sistema"}

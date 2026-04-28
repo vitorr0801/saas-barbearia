@@ -31,7 +31,7 @@ export default function MyAppointments() {
   const [aptToCancel, setAptToCancel] = useState<{ id: string, name: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">("upcoming");
 
-  // 📡 BUSCA DE DADOS (AGORA COM RELACIONAMENTO DE ELITE)
+  // 📡 BUSCA DE DADOS
   const { data: appointments = [], isLoading, refetch } = useQuery({
     queryKey: ["appointments", currentUser?.id],
     queryFn: async () => {
@@ -161,7 +161,7 @@ export default function MyAppointments() {
             )}
           </div>
         ) : (
-          <div className="grid gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="grid gap-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {currentList.map((apt: any) => {
               const dateObj = new Date(apt.appointment_date);
               const formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
@@ -174,54 +174,52 @@ export default function MyAppointments() {
                 <div 
                   key={apt.id} 
                   className={cn(
-                    "group bg-card border border-border p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all",
+                    "group bg-card border border-border p-6 md:p-8 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all",
                     isCanceled || isPast ? "opacity-60 grayscale-[50%]" : "hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 border-l-4 border-l-primary"
                   )}
                 >
+                  {/* Bloco 1: Serviço e Profissional */}
                   <div className="flex items-center gap-5">
                     <div className={cn(
-                      "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shrink-0",
+                      "w-14 h-14 rounded-2xl flex items-center justify-center transition-colors shrink-0",
                       isCanceled ? "bg-destructive/10 text-destructive" : isPast ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
                     )}>
                       <Scissors className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="font-black text-lg italic uppercase tracking-tight leading-tight">
+                      <h3 className="font-black text-lg md:text-xl italic uppercase tracking-tight leading-tight text-foreground">
                         {apt.service_name ?? apt.services?.name ?? "Serviço"}
                       </h3>
-                      <div className="flex flex-col gap-1 mt-1">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1">
-                          <User className="w-3 h-3" /> {apt.professional_name ?? apt.professional?.name ?? "—"}
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <p className="text-[11px] font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5" /> {apt.professional_name ?? apt.professional?.name ?? "—"}
                         </p>
-                        {/* 🛡️ EXIBIÇÃO DO NOME DO CLIENTE (DINÂMICO) */}
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                          Cliente: {apt.profiles?.name || "Perfil Excluído"}
-                        </p>
-                        <p className="text-[10px] font-bold text-muted-foreground/60 uppercase">
-                          R$ {(apt.total_price ?? apt.price)?.toFixed(2)} • {apt.payment_method ?? "—"}
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          R$ {(apt.total_price ?? apt.price)?.toFixed(2)} • {apt.payment_method ?? "Presencial"}
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter mb-1">
+                  {/* Bloco 2: Data, Hora e Ações com maior respiro */}
+                  <div className="flex flex-col sm:flex-row md:justify-end items-start sm:items-center gap-6 w-full md:w-auto border-t border-border/50 md:border-t-0 pt-6 md:pt-0">
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
                         {isPast && !isCanceled ? "Realizado em" : isCanceled ? "Cancelado em" : "Data e Hora"}
                       </span>
                       <div className="flex items-center gap-2 font-bold text-xs">
-                        <div className="flex items-center gap-1.5 bg-secondary px-3 py-1 rounded-full border border-border whitespace-nowrap">
-                          <Calendar className="h-3 w-3 text-primary" /> {formattedDate}
+                        <div className="flex items-center gap-1.5 bg-secondary px-3 py-1.5 rounded-full border border-border whitespace-nowrap text-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-primary" /> {formattedDate}
                         </div>
-                        <div className="flex items-center gap-1.5 bg-secondary px-3 py-1 rounded-full border border-border">
-                          <Clock className="h-3 w-3 text-primary" /> {formattedTime}
+                        <div className="flex items-center gap-1.5 bg-secondary px-3 py-1.5 rounded-full border border-border text-foreground">
+                          <Clock className="h-3.5 w-3.5 text-primary" /> {formattedTime}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-2 min-w-[120px]">
+                    <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                       <div className={cn(
-                        "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border w-full text-center",
+                        "px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border w-full sm:w-auto text-center",
                         isCanceled ? "bg-destructive/10 text-destructive border-destructive/20" : 
                         isPast ? "bg-muted text-muted-foreground border-border" :
                         apt.status === 'pending' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : 
@@ -232,21 +230,22 @@ export default function MyAppointments() {
 
                       {!isCanceled && !isPast ? (
                         <button
-                          onClick={() => openCancelModal(apt.id, apt.service_name)}
-                          className="text-[9px] font-black uppercase text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 mt-1 underline underline-offset-8 decoration-primary/20"
+                          onClick={() => openCancelModal(apt.id, apt.service_name ?? apt.services?.name ?? "Serviço")}
+                          className="text-[10px] font-black uppercase text-muted-foreground hover:text-destructive transition-colors flex justify-center w-full sm:w-auto items-center gap-1.5 mt-1 underline underline-offset-4 decoration-border hover:decoration-destructive/30"
                         >
-                          <XCircle className="w-3 h-3" /> Cancelar
+                          <XCircle className="w-3.5 h-3.5" /> Cancelar Horário
                         </button>
                       ) : (
                         <button 
                           onClick={() => navigate("/descobrir")}
-                          className="text-[9px] font-black uppercase text-primary hover:underline underline-offset-8 mt-1"
+                          className="text-[10px] font-black uppercase text-primary hover:text-primary/80 transition-colors flex justify-center w-full sm:w-auto items-center mt-1 underline underline-offset-4 decoration-primary/20"
                         >
                           Agendar novamente
                         </button>
                       )}
                     </div>
                   </div>
+
                 </div>
               );
             })}

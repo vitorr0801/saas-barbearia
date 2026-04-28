@@ -13,7 +13,7 @@ import { ActiveAppointmentCard } from "@/components/discovery/ActiveAppointmentC
 import { CategoryNav } from "@/components/discovery/CategoryNav"
 import { FeaturedShops } from "@/components/discovery/FeaturedShops"
 import { FavoriteSection } from "@/components/discovery/FavoriteSection"
-import { Sparkles, ArrowRight, ShieldAlert } from "lucide-react"
+import { Sparkles, ArrowRight, ShieldAlert, MapPin, XCircle } from "lucide-react"
 
 const MOCK_SHOPS = [
   {
@@ -41,35 +41,58 @@ const MOCK_SHOPS = [
 export default function ClientPortal() {
   const navigate = useNavigate();
   const { currentUser, isAuthenticated, isLoading: authLoading } = useAuth();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // 📡 1. BUSCA DE BARBEARIAS (Sempre ativa para Guest Mode)
+  // 📡 1. BUSCA DE BARBEARIAS
   const { data: realShops = [], isLoading: shopsLoading } = useQuery({
-    queryKey: ["featured-shops-real"],
+    queryKey: ["featured-shops-real", userLocation],
     queryFn: async () => {
+      if (userLocation) {
+        const { data, error } = await supabase.rpc("get_nearby_barbershops", {
+          client_lat: userLocation.lat,
+          client_lng: userLocation.lng,
+          radius_km: 7 // 🚀 TIER-1: Raio Hiperlocal Otimizado para 7km
+        });
+        
+        if (error) throw error;
+        
+        return (data ?? []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          neighborhood: s.neighborhood ?? "—",
+          categories: [], 
+          coverImage: s.cover_image ?? null,
+          distance: s.distancia_metros,
+          rating: 4.8,
+          startingPrice: 55,
+        }));
+      }
+      
       const { data, error } = await supabase
         .from("barbearias")
         .select("id, name, neighborhood, categories, cover_image, status")
         .eq("status", "active");
+        
       if (error) throw error;
-      return (
-        (data ?? []).map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          neighborhood: s.neighborhood ?? "—",
-          categories: Array.isArray(s.categories) ? s.categories : [],
-          coverImage: s.cover_image ?? null,
-          // Defaults para manter o card compatível (até termos avaliações/preços reais no schema)
-          rating: 4.8,
-          startingPrice: 55,
-        })) ?? []
-      );
+      
+      return (data ?? []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        neighborhood: s.neighborhood ?? "—",
+        categories: Array.isArray(s.categories) ? s.categories : [],
+        coverImage: s.cover_image ?? null,
+        rating: 4.8,
+        startingPrice: 55,
+      }));
     },
     staleTime: 1000 * 60 * 5, 
   });
 
-  // 📡 2. BUSCA DE FAVORITOS (Inativa para Guest)
+  // 📡 2. BUSCA DE FAVORITOS
   const { data: favoriteIds = [], refetch: refetchFavorites } = useQuery({
     queryKey: ["user-favorite-ids", currentUser?.id],
     queryFn: async () => {
@@ -85,7 +108,7 @@ export default function ClientPortal() {
     enabled: !authLoading && isAuthenticated && !!currentUser?.id,
   });
 
-  // 📡 3. BUSCA DE AGENDAMENTOS (Inativa para Guest)
+  // 📡 3. BUSCA DE AGENDAMENTOS
   const { data: activeAppointments = [] } = useQuery({
     queryKey: ["active-appointments", currentUser?.id],
     queryFn: async () => {
@@ -101,14 +124,12 @@ export default function ClientPortal() {
     enabled: !authLoading && isAuthenticated && !!currentUser?.id,
   });
 
-  // 🔄 SINCRONIZAÇÃO DE SEGURANÇA
   useEffect(() => {
     if (!authLoading && isAuthenticated && currentUser?.id) {
       refetchFavorites();
     }
   }, [authLoading, isAuthenticated, currentUser?.id, refetchFavorites]);
 
-  // 🛡️ INTERCEPTADOR DE AÇÕES (UX de Elite)
   const handleProtectedAction = (shopId: string) => {
     if (!isAuthenticated) {
       toast.info("Acesso Restrito", {
@@ -124,8 +145,31 @@ export default function ClientPortal() {
     navigate(`/agendar?shop=${shopId}`);
   };
 
-  // 🧬 FUSÃO E FILTRAGEM
-  const allShops = useMemo(() => [...realShops, ...MOCK_SHOPS], [realShops]);
+  const handleUseLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Seu navegador não suporta geolocalização.");
+      return;
+    }
+
+    const toastId = toast.loading("Acionando radar por satélite...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        toast.success("Radar ativo! Mostrando barbearias num raio de 7km.", { id: toastId });
+      },
+      (err) => {
+        let msg = "Não foi possível acessar sua localização.";
+        if (err.code === 1) msg = "Permissão de localização negada. Verifique seu navegador.";
+        toast.error(msg, { id: toastId });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const allShops = useMemo(() => {
+    return userLocation ? [...realShops] : [...realShops, ...MOCK_SHOPS];
+  }, [realShops, userLocation]);
 
   const favoriteShops = useMemo(() => {
     if (!isAuthenticated || !currentUser) return [];
@@ -138,7 +182,7 @@ export default function ClientPortal() {
     return allShops.filter((shop: any) => {
       const matchesSearch = query === "" || shop.name.toLowerCase().includes(query);
       const matchesCategory = selectedCategory === null || 
-        shop.categories?.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase());
+        (Array.isArray(shop.categories) && shop.categories.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase()));
       return matchesSearch && matchesCategory;
     });
   }, [allShops, searchQuery, selectedCategory]);
@@ -149,7 +193,6 @@ export default function ClientPortal() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 space-y-12">
         
-        {/* 1. SEÇÃO DE BOAS-VINDAS DINÂMICA */}
         <section className="animate-in fade-in slide-in-from-left-4 duration-1000">
           <h2 className="text-3xl font-black italic uppercase tracking-tighter text-foreground leading-none">
             {isAuthenticated && currentUser ? (
@@ -165,12 +208,32 @@ export default function ClientPortal() {
           )}
         </section>
 
-        {/* 2. HUB DE BUSCA */}
-        <section>
-          <SearchHub searchQuery={searchQuery} onSearchChange={setSearchQuery} onUseLocation={() => {}} />
+        <section className="space-y-4">
+          <SearchHub 
+            searchQuery={searchQuery} 
+            onSearchChange={setSearchQuery} 
+            onUseLocation={handleUseLocation} 
+          />
+          
+          {/* 🚀 TIER-1 UX: Indicador Visual atualizado para 7km */}
+          {userLocation && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-widest animate-in zoom-in-95 duration-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              Radar de Proximidade Ativo (Raio 7km)
+              <button 
+                onClick={() => setUserLocation(null)}
+                className="ml-2 hover:text-white transition-colors"
+                title="Desativar Radar"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </section>
 
-        {/* 3. BANNER DE CONVERSÃO PARA CONVIDADOS */}
         {!isAuthenticated && !authLoading && (
           <section className="relative p-8 rounded-[2.5rem] bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
@@ -194,7 +257,6 @@ export default function ClientPortal() {
           </section>
         )}
 
-        {/* 4. AGENDAMENTOS ATIVOS (Somente Logados) */}
         {isAuthenticated && activeAppointments.length > 0 && (
           <section className="animate-in fade-in duration-700">
              <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
@@ -205,7 +267,6 @@ export default function ClientPortal() {
           </section>
         )}
 
-        {/* 5. FAVORITOS (Somente Logados) */}
         {isAuthenticated && favoriteShops.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <FavoriteSection 
@@ -216,22 +277,28 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* 6. CATEGORIAS */}
         <section>
           <CategoryNav selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} />
         </section>
 
-        {/* 7. BARBEARIAS EM DESTAQUE */}
         <section className="animate-in fade-in duration-700">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-foreground">
-              Barbearias de <span className="text-primary">Elite</span>
+            <h2 className="text-2xl font-black italic uppercase tracking-tighter text-foreground flex items-center gap-2">
+              {userLocation ? (
+                <><MapPin className="w-6 h-6 text-primary" /> Perto de <span className="text-primary">Você</span></>
+              ) : (
+                <>Barbearias de <span className="text-primary">Elite</span></>
+              )}
             </h2>
           </div>
           
           {shopsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[1, 2, 3].map(i => <div key={i} className="h-64 bg-card/50 animate-pulse rounded-[2.5rem] border border-white/5" />)}
+            </div>
+          ) : filteredShops.length === 0 ? (
+            <div className="py-12 text-center border border-dashed border-border/50 rounded-3xl bg-card/20">
+               <p className="text-muted-foreground font-medium">Nenhuma barbearia encontrada num raio de 7km.</p>
             </div>
           ) : (
             <FeaturedShops 
