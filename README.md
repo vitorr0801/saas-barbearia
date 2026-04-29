@@ -25,7 +25,7 @@ Siga os passos abaixo para executar a aplicação localmente no seu ambiente de 
 
 **Passo 1: Clone o repositório**
 ```sh
-git clone https://github.com/vitorr0801/saas-barbearia.git](https://github.com/vitorr0801/saas-barbearia.git
+git clone https://github.com/vitorr0801/saas-barbearia.git
 ```
 
 **Passo 2: Acesse a pasta do projeto e instale as dependências**
