@@ -1,73 +1,53 @@
-# Welcome to your Lovable project
+# BarberPro - Sistema de Gestão para Barbearias
 
-## Project info
+## 👥 Integrantes do Grupo
+* João Pedro Venturoso Mazza
+* Vitor Reis Rodrigues de Souza
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 📝 Descrição Geral da Solução
+O BarberPro é um Software as a Service (SaaS) desenvolvido para modernizar e automatizar a gestão de barbearias. A plataforma oferece uma interface intuitiva para agendamentos online, gestão da equipe de barbeiros, acompanhamento financeiro, controle de status de serviços e muito mais, substituindo agendas de papel e processos manuais confusos por um fluxo digital altamente eficiente.
 
-## How can I edit this code?
+## 🛠️ Tecnologias Utilizadas
+Este projeto foi construído utilizando as seguintes tecnologias modernas de mercado:
+* **Frontend:** React, TypeScript, Vite
+* **Estilização e Componentes:** Tailwind CSS, shadcn-ui
+* **Backend e Banco de Dados:** Supabase (PostgreSQL, Autenticação, Row Level Security)
 
-There are several ways of editing your application.
+## 📚 Documentação
+* [Resumo Executivo (PDF)](./Resumo_Executivo.pdf)
+* [Documentação Técnica e Negocial](./docs/README.md)
 
-**Use Lovable**
+## 🚀 Instruções Básicas de Execução
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Siga os passos abaixo para executar a aplicação localmente no seu ambiente de desenvolvimento.
 
-Changes made via Lovable will be committed automatically to this repo.
+**Pré-requisitos:** É necessário ter o [Node.js e npm](https://nodejs.org/) instalados na sua máquina.
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
+**Passo 1: Clone o repositório**
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+git clone [https://github.com/vitorr0801/saas-barbearia.git](https://github.com/vitorr0801/saas-barbearia.git)
 ```
 
-**Edit a file directly in GitHub**
+**Passo 2: Acesse a pasta do projeto e instale as dependências**
+```sh
+cd saas-barbearia
+npm install
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**Passo 3: Configure as variáveis de ambiente**
+Crie um arquivo `.env` na raiz do projeto e adicione as credenciais do Supabase. 
 
-**Use GitHub Codespaces**
+> **Nota de Segurança:** Por boas práticas, as credenciais do banco de dados oficial não são versionadas no repositório. Para testar a aplicação, solicite as chaves de acesso aos mantenedores do projeto ou crie o seu próprio projeto no Supabase e insira as suas credenciais abaixo.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_SUPABASE_PROJECT_ID=
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+VITE_LOCATIONIQ_TOKEN=
+```
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Passo 4: Inicie o servidor local**
+```sh
+npm run dev
+```
