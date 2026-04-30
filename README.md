@@ -14,7 +14,7 @@ Este projeto foi construído utilizando as seguintes tecnologias modernas de mer
 * **Backend e Banco de Dados:** Supabase (PostgreSQL, Autenticação, Row Level Security)
 
 ## 📚 Documentação
-* [Resumo Executivo (PDF)](./docs/Resumo_Executivo.pdf)
+* [Resumo Executivo (PDF)](./docs/ResumoExecutivoBarberPro.pdf)
 * [Documentação Negocial](./docs/negocial.md)
 * [Documentação Técnica](./docs/tecnica.md)
 
