@@ -4,7 +4,7 @@ import { formatCurrency } from "@/lib/currency";
 import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { Product } from "./ProductList";
+import { useProducts } from "@/hooks/useProducts";
 
 interface StatCardProps {
   title: string;
@@ -38,11 +38,8 @@ function StatCard({ title, value, icon, iconBg, subtitle }: StatCardProps) {
 export function InventoryStats() {
   const { currentUser } = useAuth();
 
-  // A MÁGICA: Como a queryKey é a mesma, ele não faz outra requisição, ele pega do cache!
-  const { data: products = [] } = useQuery<Product[]>({
-    queryKey: ["products", currentUser?.barbearia_id],
-    enabled: !!currentUser?.barbearia_id,
-  });
+  // A MÁGICA: Usa o hook centralizado. O React Query junta essa chamada com as outras!
+  const { data: products = [] } = useProducts();
 
   // Busca rapidamente a tabela de vendas para achar o mais vendido
   const { data: sales = [] } = useQuery({

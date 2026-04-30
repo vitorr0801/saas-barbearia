@@ -4,13 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { formatCurrency } from "@/lib/currency";
-
-// Interface para o TypeScript reconhecer os produtos no cache
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-}
+import { useProducts } from "@/hooks/useProducts";
 
 export function SalesComparisonChart() {
   const { currentUser } = useAuth();
@@ -32,11 +26,8 @@ export function SalesComparisonChart() {
     enabled: !!currentUser?.barbearia_id,
   });
 
-  // 2. Busca a lista de PRODUTOS (Puxa do cache da tela instantaneamente)
-  const { data: products = [] } = useQuery<Product[]>({
-    queryKey: ["products", currentUser?.barbearia_id],
-    enabled: !!currentUser?.barbearia_id,
-  });
+  // 2. Busca a lista de PRODUTOS (Agora usando o hook centralizado e seguro)
+  const { data: products = [] } = useProducts();
 
   // 3. Busca a lista de VENDAS (Puxa do cache da tela instantaneamente)
   const { data: sales = [] } = useQuery({
@@ -65,7 +56,7 @@ export function SalesComparisonChart() {
 
   const data = [
     { name: "Serviços", value: servicesTotal, fill: "hsl(var(--primary))" },
-    { name: "Produtos", value: productsTotal, fill: "hsl(var(--chart-2))" },
+    { name: "Produtos", value: productsTotal, fill: "#10b981" }, // Verde Esmeralda
   ];
 
   return (
