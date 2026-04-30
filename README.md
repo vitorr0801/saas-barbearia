@@ -14,8 +14,9 @@ Este projeto foi construído utilizando as seguintes tecnologias modernas de mer
 * **Backend e Banco de Dados:** Supabase (PostgreSQL, Autenticação, Row Level Security)
 
 ## 📚 Documentação
-* [Resumo Executivo (PDF)](./Resumo_Executivo.pdf)
-* [Documentação Técnica e Negocial](./docs/README.md)
+* [Resumo Executivo (PDF)](./docs/Resumo_Executivo.pdf)
+* [Documentação Negocial](./docs/negocial.md)
+* [Documentação Técnica](./docs/tecnica.md)
 
 ## 🚀 Instruções Básicas de Execução
 
