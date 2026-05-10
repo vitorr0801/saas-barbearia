@@ -40,7 +40,7 @@ export default function SignupBarbeiro() {
   const [searchParams] = useSearchParams();
   const { isAuthenticated, currentUser, logout } = useAuth();
 
-  // 🕵️ LÓGICA DO CAMALEÃO
+  // 🕵️ LÓGICA DO CAMALEÃO (Convite)
   const isInviteFlow = searchParams.get("type") === "invite";
   const inviteToken = searchParams.get("token") || "";
   const inviteEmail = searchParams.get("email") || "";
@@ -61,7 +61,6 @@ export default function SignupBarbeiro() {
 
   const ROLE = "barbeiro";
 
-  // 🚀 TIER-1: Validador de Força de Senha
   const passwordReqs = {
     length: password.length >= 8,
     number: /\d/.test(password),
@@ -69,9 +68,30 @@ export default function SignupBarbeiro() {
   };
   const isPasswordValid = Object.values(passwordReqs).every(Boolean);
 
+  // 🚀 FORÇA A SESSÃO DO CONVITE
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (isInviteFlow && hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      
+      if (accessToken && refreshToken) {
+        supabase.auth.setSession({ 
+          access_token: accessToken, 
+          refresh_token: refreshToken 
+        }).then(({ error }) => {
+          if (error) console.error("Erro ao forçar sessão:", error);
+        });
+      }
+    }
+  }, [isInviteFlow]);
+
   // 🛡️ GUARDIÃO DE ROTA BLINDADO
   useEffect(() => {
     if (isAuthenticated && currentUser) {
+      if (isInviteFlow) return; // Garante que a pessoa fique na tela para colocar a senha
+
       if (currentUser.role === 'cliente') {
         toast.error("Conta de cliente detectada. Você não tem acesso a esta área.");
         logout(); 
@@ -82,8 +102,9 @@ export default function SignupBarbeiro() {
         navigate(target, { replace: true });
       }
     }
-  }, [isAuthenticated, currentUser, navigate, logout]);
+  }, [isAuthenticated, currentUser, navigate, logout, isInviteFlow]);
 
+  // ✅ FUNÇÃO RESTAURADA
   const handleGoogleAuth = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -109,6 +130,7 @@ export default function SignupBarbeiro() {
     }
   };
 
+  // ✅ FUNÇÃO RESTAURADA
   const handleLoginSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -156,42 +178,66 @@ export default function SignupBarbeiro() {
     }
 
     setIsSubmitting(true);
-    const toastId = toast.loading(isInviteFlow ? "Configurando acesso..." : "Criando sua conta...");
+    const toastId = toast.loading(isInviteFlow ? "Validando acesso na equipe..." : "Criando sua conta...");
     const whatsappDigits = whatsapp.replace(/\D/g, "");
 
     try {
-      const { error, data } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password,
-        options: { 
-          data: { 
-            name: name.trim(), 
-            phone: whatsappDigits, 
+      if (isInviteFlow) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error("Sessão do convite não identificada. Por favor, clique no link do e-mail novamente.");
+        }
+
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password,
+          data: {
+            name: name.trim(),
+            phone: whatsappDigits,
             role: ROLE,
             invite_token: inviteToken || null
+          }
+        });
+
+        if (updateError) throw updateError;
+
+        toast.success("Acesso configurado! Entrando no sistema...", { id: toastId });
+        
+        localStorage.setItem("barberpro_oauth_intent", JSON.stringify({
+          role: ROLE,
+          isInvite: true,
+          inviteToken: inviteToken || null
+        }));
+        
+        window.location.replace("/auth/callback-barbeiro");
+
+      } else {
+        const { error, data } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password,
+          options: { 
+            data: { name: name.trim(), phone: whatsappDigits, role: ROLE },
+            emailRedirectTo: `${window.location.origin}/auth/callback-barbeiro`
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback-barbeiro`
-        },
-      });
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data.user && data.user.identities?.length === 0) {
-        toast.error("Este e-mail já está registrado. Faça login para continuar.", { id: toastId });
-        setAuthMode("login");
-        setIsSubmitting(false);
-        return;
+        if (data.user && data.user.identities?.length === 0) {
+          toast.error("Este e-mail já está registrado. Faça login para continuar.", { id: toastId });
+          setAuthMode("login");
+          setIsSubmitting(false);
+          return;
+        }
+
+        toast.success("Sucesso! Verifique seu e-mail para ativar a conta.", { id: toastId });
+        setStep(2);
       }
-
-      toast.success("Sucesso! Verifique seu e-mail para ativar a conta.", { id: toastId });
-      setStep(2);
     } catch (error: any) {
       toast.error(error.message, { id: toastId });
       setIsSubmitting(false);
     }
   };
 
-  // Componente interno para renderizar as regrinhas
   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
     <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors duration-300 ${met ? "text-emerald-500" : "text-muted-foreground/50"}`}>
       {met ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
@@ -223,6 +269,7 @@ export default function SignupBarbeiro() {
 
         {step === 1 ? (
           <div className="bg-[#11141d] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+            
             <Button onClick={handleGoogleAuth} disabled={isSubmitting} variant="outline" className="w-full h-14 rounded-2xl font-bold border-white/10 hover:bg-white/5 flex items-center justify-center gap-3">
               <GoogleIcon />
               <span className="text-sm">Continuar com Google</span>
@@ -247,15 +294,15 @@ export default function SignupBarbeiro() {
                 placeholder="E-mail profissional" 
                 value={authMode === "login" ? loginIdentifier : email} 
                 onChange={(e) => authMode === "login" ? setLoginIdentifier(e.target.value) : setEmail(e.target.value)} 
-                disabled={isInviteFlow && authMode === "signup"}
-                className={`h-12 rounded-xl bg-white/5 border-none ${isInviteFlow && authMode === "signup" ? "opacity-50 cursor-not-allowed" : ""}`}
+                disabled={isInviteFlow && authMode === "signup" && email.length > 0}
+                className={`h-12 rounded-xl bg-white/5 border-none ${isInviteFlow && authMode === "signup" && email.length > 0 ? "opacity-50 cursor-not-allowed text-muted-foreground" : ""}`}
               />
               
               <div className="space-y-3">
                 <div className="relative">
                   <Input 
                     type={showPassword ? "text" : "password"} 
-                    maxLength={72} /* 🚀 TIER-1: Proteção silenciosa contra ataque DoS no bcrypt */
+                    maxLength={72} 
                     placeholder="Senha segura" 
                     value={authMode === "login" ? loginPassword : password} 
                     onChange={(e) => authMode === "login" ? setLoginPassword(e.target.value) : setPassword(e.target.value)} 
@@ -266,7 +313,6 @@ export default function SignupBarbeiro() {
                   </button>
                 </div>
 
-                {/* 🚀 Indicador Inteligente: Só aparece no Cadastro! */}
                 {authMode === "signup" && password.length > 0 && (
                   <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1">
                     <RequirementItem met={passwordReqs.length} text="Mínimo 8 caracteres" />

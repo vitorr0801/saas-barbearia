@@ -19,6 +19,18 @@ export function Header() {
   const navigate = useNavigate()
   const { currentUser, isAuthenticated, logout, role, isLoading: authLoading } = useAuth()
 
+  // 🚀 RBAC: LÓGICA DE CARGOS DO HEADER MUNDIAL
+  const isOwner = Boolean(currentUser?.is_admin);
+  const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
+  const isManager = userJob === "gerente";
+  const isSecretary = userJob === "secretária" || userJob === "secretaria";
+
+  const canSeePainel = !(isManager || isSecretary); // Oculta Dashboard para Staff
+  const canSeeFinanceiro = isOwner;
+  const canSeeEquipe = isOwner || isManager;
+  const canSeeConfiguracoes = isOwner || isManager;
+  const canSeeProdutos = isOwner || isManager || isSecretary;
+
   // 🚩 DEFINIÇÃO DE CONTEXTOS
   const isDiscoveryPage = location.pathname === "/descobrir";
 
@@ -32,7 +44,7 @@ export function Header() {
     "/setup",
     "/perfil/barbeiro",
     "/equipe",
-    "/dashboard/configuracoes" // Garantia de que a sub-rota mantém o menu de barbeiro
+    "/dashboard/configuracoes"
   ];
 
   const isBarberWorkspace =
@@ -49,7 +61,7 @@ export function Header() {
 
   const showBookingStyleCenter = isClientContext || isBarberWorkspace;
 
-  /** 📡 BUSCA DO STATUS DE FAVORITOS (Blindado para logados) */
+  /** 📡 BUSCA DO STATUS DE FAVORITOS */
   const { data: favoritesCount = 0 } = useQuery({
     queryKey: ["user-favorites-count", currentUser?.id],
     queryFn: async () => {
@@ -76,11 +88,7 @@ export function Header() {
       e.preventDefault();
       toast.info("Ação Necessária", {
         description: "Entre ou crie sua conta para acessar estas funcionalidades.",
-        action: {
-          label: "Entrar",
-          // 🚀 CORREÇÃO: Aponta direto para a porta do cliente
-          onClick: () => navigate("/login-cliente")
-        },
+        action: { label: "Entrar", onClick: () => navigate("/login-cliente") },
       });
       return;
     }
@@ -113,7 +121,7 @@ export function Header() {
           
           {/* 1. LOGO */}
           <Link 
-            to={!isAuthenticated ? "/" : (role === 'barbeiro' ? '/dashboard' : '/descobrir')}
+            to={!isAuthenticated ? "/" : (role === 'barbeiro' ? (canSeePainel ? '/dashboard' : '/agendamentos') : '/descobrir')}
             onClick={handleLogoClick}
             className="flex items-center gap-2 group shrink-0 relative z-[1000]"
           >
@@ -125,7 +133,7 @@ export function Header() {
             </span>
           </Link>
 
-          {/* 2. NAV CENTRAL — mesmo padrão da /agendar (busca pill) */}
+          {/* 2. NAV CENTRAL */}
           <div className="hidden lg:flex flex-1 justify-center px-8">
             {!showBookingStyleCenter ? (
               <div className="flex items-center gap-10">
@@ -150,7 +158,6 @@ export function Header() {
           {/* 3. AÇÕES DA DIREITA */}
           <div className="flex items-center gap-4">
             
-            {/* Atalhos do Cliente */}
             {isClientContext && (
               <div className="hidden md:flex items-center gap-6 mr-2">
                 <button onClick={(e) => handleProtectedAction(e, "/meus-agendamentos")} className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors">
@@ -168,28 +175,15 @@ export function Header() {
             {!isAuthenticated ? (
               <div className="flex items-center gap-3">
                 {isDiscoveryPage ? (
-                  /* PORTAL DO CLIENTE: Entrar */
-                  <Button 
-                    onClick={() => navigate("/login-cliente")} 
-                    variant="outline"
-                    className="h-10 px-8 bg-white/5 border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-white/10 transition-all active:scale-95 shadow-sm"
-                  >
+                  <Button onClick={() => navigate("/login-cliente")} variant="outline" className="h-10 px-8 bg-white/5 border-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-white/10 transition-all active:scale-95 shadow-sm">
                     Entrar
                   </Button>
                 ) : (
-                  /* 💎 LANDING PAGE: Limpeza e Foco */
                   <>
-                    <button 
-                      onClick={() => navigate("/descobrir")}
-                      className="hidden sm:flex h-10 px-5 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all active:scale-95"
-                    >
+                    <button onClick={() => navigate("/descobrir")} className="hidden sm:flex h-10 px-5 items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all active:scale-95">
                       Sou Cliente
                     </button>
-                    {/* 🚀 CORREÇÃO MESTRA: Botão Acessar apontando para o Barbeiro */}
-                    <Button 
-                      onClick={() => navigate("/login-barbeiro")} 
-                      className="h-10 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-                    >
+                    <Button onClick={() => navigate("/login-barbeiro")} className="h-10 px-8 bg-primary text-primary-foreground font-black uppercase italic text-[10px] rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all">
                       Acessar
                     </Button>
                   </>
@@ -207,54 +201,63 @@ export function Header() {
                   >
                     <Calendar className="w-4 h-4 shrink-0" /> Agenda
                   </Link>
-                  <Link
-                    to="/dashboard"
-                    className={cn(
-                      "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
-                      location.pathname === "/dashboard" && "text-primary",
-                    )}
-                  >
-                    <LayoutDashboard className="w-4 h-4 shrink-0" /> Painel
-                  </Link>
-                  {currentUser?.is_admin && (
-                    <>
-                      <Link
-                        to="/financeiro"
-                        className={cn(
-                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
-                          location.pathname.startsWith("/financeiro") && "text-primary",
-                        )}
-                      >
-                        <Wallet className="w-4 h-4 shrink-0" /> Financeiro
-                      </Link>
-                      <Link
-                        to="/produtos"
-                        className={cn(
-                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
-                          location.pathname.startsWith("/produtos") && "text-primary",
-                        )}
-                      >
-                        <Package className="w-4 h-4 shrink-0" /> Produtos
-                      </Link>
-                      <Link
-                        to="/dashboard/configuracoes"
-                        className={cn(
-                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
-                          location.pathname.startsWith("/dashboard/configuracoes") && "text-primary",
-                        )}
-                      >
-                        <Settings className="w-4 h-4 shrink-0" /> Configurações
-                      </Link>
-                      <Link
-                        to="/equipe"
-                        className={cn(
-                          "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
-                          location.pathname.startsWith("/equipe") && "text-primary",
-                        )}
-                      >
-                        <Users className="w-4 h-4 shrink-0" /> Equipe
-                      </Link>
-                    </>
+
+                  {/* 🚀 TRAVA DO PAINEL */}
+                  {canSeePainel && (
+                    <Link
+                      to="/dashboard"
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                        location.pathname === "/dashboard" && "text-primary",
+                      )}
+                    >
+                      <LayoutDashboard className="w-4 h-4 shrink-0" /> Painel
+                    </Link>
+                  )}
+
+                  {canSeeFinanceiro && (
+                    <Link
+                      to="/financeiro"
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                        location.pathname.startsWith("/financeiro") && "text-primary",
+                      )}
+                    >
+                      <Wallet className="w-4 h-4 shrink-0" /> Financeiro
+                    </Link>
+                  )}
+                  {canSeeProdutos && (
+                    <Link
+                      to="/produtos"
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                        location.pathname.startsWith("/produtos") && "text-primary",
+                      )}
+                    >
+                      <Package className="w-4 h-4 shrink-0" /> Produtos
+                    </Link>
+                  )}
+                  {canSeeConfiguracoes && (
+                    <Link
+                      to="/dashboard/configuracoes"
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                        location.pathname.startsWith("/dashboard/configuracoes") && "text-primary",
+                      )}
+                    >
+                      <Settings className="w-4 h-4 shrink-0" /> Configurações
+                    </Link>
+                  )}
+                  {canSeeEquipe && (
+                    <Link
+                      to="/equipe"
+                      className={cn(
+                        "flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white/70 hover:text-primary transition-colors",
+                        location.pathname.startsWith("/equipe") && "text-primary",
+                      )}
+                    >
+                      <Users className="w-4 h-4 shrink-0" /> Equipe
+                    </Link>
                   )}
                 </div>
                 <Link
@@ -275,7 +278,7 @@ export function Header() {
               </div>
             ) : (
               <div className="flex items-center gap-4 sm:gap-6">
-                {role === "barbeiro" && !isBarberWorkspace && (
+                {role === "barbeiro" && !isBarberWorkspace && canSeePainel && (
                   <Link to="/dashboard" className="hidden md:flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-white hover:text-primary transition-colors border-r border-white/10 pr-6 mr-2">
                     <LayoutDashboard className="w-4 h-4" /> Painel
                   </Link>
@@ -301,17 +304,13 @@ export function Header() {
           </div>
         </div>
 
-        {/* MENU MOBILE ADAPTADO */}
+        {/* MENU MOBILE ADAPTADO COM RBAC */}
         {isMenuOpen && (
           <div className="lg:hidden py-8 border-t border-white/5 animate-in slide-in-from-top-4">
             <div className="flex flex-col gap-6 px-2">
               {!isAuthenticated ? (
                 <>
-                  {/* 🚀 CORREÇÃO MOBILE: Aponta para as portas corretas e blindadas */}
-                  <Button 
-                    onClick={() => { navigate(isDiscoveryPage ? "/login-cliente" : "/login-barbeiro"); setIsMenuOpen(false); }} 
-                    className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl"
-                  >
+                  <Button onClick={() => { navigate(isDiscoveryPage ? "/login-cliente" : "/login-barbeiro"); setIsMenuOpen(false); }} className="h-14 bg-primary text-primary-foreground font-black uppercase italic rounded-2xl">
                     {isDiscoveryPage ? "Entrar na Conta" : "Acessar Sistema"}
                   </Button>
                   {!isDiscoveryPage && (
@@ -322,12 +321,15 @@ export function Header() {
                 </>
               ) : (
                 <div className="space-y-2">
-                  <MobileNavItem icon={<LayoutDashboard />} label="Painel Administrativo" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
+                  {/* 🚀 TRAVA DO PAINEL MOBILE */}
+                  <MobileNavItem icon={<LayoutDashboard />} label="Painel Administrativo" to="/dashboard" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && canSeePainel} />
+                  
                   <MobileNavItem icon={<Calendar />} label="Agenda da Barbearia" to="/agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro'} />
-                  <MobileNavItem icon={<Wallet />} label="Financeiro" to="/financeiro" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
-                  <MobileNavItem icon={<Package />} label="Produtos" to="/produtos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
-                  <MobileNavItem icon={<Settings />} label="Configurações" to="/dashboard/configuracoes" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
-                  <MobileNavItem icon={<Users />} label="Minha Equipe" to="/equipe" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && !!currentUser?.is_admin} />
+                  <MobileNavItem icon={<Wallet />} label="Financeiro" to="/financeiro" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && canSeeFinanceiro} />
+                  <MobileNavItem icon={<Package />} label="Produtos" to="/produtos" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && canSeeProdutos} />
+                  <MobileNavItem icon={<Settings />} label="Configurações" to="/dashboard/configuracoes" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && canSeeConfiguracoes} />
+                  <MobileNavItem icon={<Users />} label="Minha Equipe" to="/equipe" onClick={() => setIsMenuOpen(false)} show={role === 'barbeiro' && canSeeEquipe} />
+                  
                   <MobileNavItem icon={<Calendar />} label="Minha Agenda" to="/meus-agendamentos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <MobileNavItem icon={<Heart />} label="Favoritos" to="/favoritos" onClick={() => setIsMenuOpen(false)} show={role === 'cliente'} />
                   <button onClick={handleLogout} className="w-full flex items-center justify-center gap-3 p-4 font-black uppercase italic text-destructive bg-destructive/5 rounded-2xl mt-4">

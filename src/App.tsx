@@ -39,9 +39,6 @@ const AuthCallbackBarbeiro = lazy(() => import("./pages/AuthCallbackBarbeiro"));
 
 const queryClient = new QueryClient();
 
-/**
- * 🌀 LOADING UI PREMIUM
- */
 const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) => (
   <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0a0c12]">
     <div className="relative w-12 h-12">
@@ -55,17 +52,16 @@ const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) =
 );
 
 /**
- * 🛡️ PROTECTED ROUTE (Arquitetura de Fluxo Unificado)
- * Ajustada para diferenciar DONOS de BARBEIROS CONVIDADOS.
+ * 🛡️ PROTECTED ROUTE (Arquitetura RBAC Mundial)
  */
 function ProtectedRoute({
   children,
   allowedRoles,
-  requireBarberAdmin,
+  requiredModule,
 }: {
   children: JSX.Element;
   allowedRoles?: Array<"cliente" | "barbeiro">;
-  requireBarberAdmin?: boolean;
+  requiredModule?: "finance" | "team" | "products" | "settings";
 }) {
   const { isAuthenticated, role, isLoading, currentUser } = useAuth();
   const location = useLocation();
@@ -88,18 +84,24 @@ function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
 
-  // 3. Verificação de Admin (Apenas para rotas restritas ao Dono)
-  if (requireBarberAdmin && role === "barbeiro" && !currentUser?.is_admin) {
-    return <Navigate to="/dashboard" replace />;
+  // 3. 🚀 CONTROLE DE ACESSO AVANÇADO (RBAC)
+  if (requiredModule && role === "barbeiro") {
+    const isOwner = Boolean(currentUser?.is_admin);
+    const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
+    const isManager = userJob === "gerente";
+    const isSecretary = userJob === "secretária" || userJob === "secretaria";
+
+    let hasAccess = false;
+    if (requiredModule === "finance") hasAccess = isOwner;
+    if (requiredModule === "team") hasAccess = isOwner || isManager;
+    if (requiredModule === "settings") hasAccess = isOwner || isManager;
+    if (requiredModule === "products") hasAccess = isOwner || isManager || isSecretary;
+
+    if (!hasAccess) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
-  /**
-   * 🚀 AJUSTE MUNDIAL: BIFURCAÇÃO DE ONBOARDING
-   * Só enviamos para o Onboarding (Setup) se:
-   * - O usuário for barbeiro
-   * - NÃO tiver barbearia vinculada
-   * - FOR o administrador (Dono)
-   */
   const isDonoSemBarbearia = role === "barbeiro" && !currentUser?.barbearia_id && currentUser?.is_admin;
 
   if (isDonoSemBarbearia && location.pathname !== "/onboarding") {
@@ -109,9 +111,6 @@ function ProtectedRoute({
   return children;
 }
 
-/**
- * 🔀 HOME REDIRECT
- */
 const HomeRedirect = () => {
   const { isAuthenticated, role, isLoading, currentUser } = useAuth();
 
@@ -119,12 +118,11 @@ const HomeRedirect = () => {
   if (!isAuthenticated) return <Landing />;
   
   if (role === "barbeiro") {
-    /**
-     * Padrão Mundial: Se o barbeiro convidado já tem barbearia_id, 
-     * ele nunca deve ver a tela de onboarding.
-     */
-    const targetPath = (currentUser?.barbearia_id || !currentUser?.is_admin) 
-      ? "/dashboard" 
+    const userJob = (currentUser?.job_title || "").toLowerCase().trim();
+    const isStaffWithoutDashboard = userJob === "gerente" || userJob === "secretária" || userJob === "secretaria";
+
+    const targetPath = currentUser?.barbearia_id 
+      ? (isStaffWithoutDashboard ? "/agendamentos" : "/dashboard")
       : "/onboarding";
       
     return <Navigate to={targetPath} replace />;
@@ -152,13 +150,16 @@ const AppRoutes = () => {
           <Route path="/descobrir" element={<ClientPortal />} />
           <Route path="/agendar" element={<Index />} />
           
-          {/* --- ECOSSISTEMA PARCEIRO --- */}
+          {/* --- ECOSSISTEMA PARCEIRO COM RBAC --- */}
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Dashboard /></ProtectedRoute>} />
           <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Agenda /></ProtectedRoute>} />
-          <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Financial /></ProtectedRoute>} />
-          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Products /></ProtectedRoute>} />
-          <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><BarbershopSettings /></ProtectedRoute>} />
-          <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requireBarberAdmin><Team /></ProtectedRoute>} />
+          
+          {/* Rotas Restritas */}
+          <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="finance"><Financial /></ProtectedRoute>} />
+          <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="team"><Team /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="settings"><BarbershopSettings /></ProtectedRoute>} />
+          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="products"><Products /></ProtectedRoute>} />
+          
           <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
           <Route path="/bancada" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Workstation /></ProtectedRoute>} />
           <Route path="/perfil/barbeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]}><BarberProfile /></ProtectedRoute>} />

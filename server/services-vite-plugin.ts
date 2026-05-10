@@ -77,12 +77,15 @@ function servicesMiddleware(env: ServicesEnv) {
       return;
     }
 
-    // ---------- SHOP SETTINGS (admin only) ----------
+    // ---------- SHOP SETTINGS (admin and manager only) ----------
     if (path === "/api/shop/me") {
       if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed" });
-      if (who.role !== "barbeiro" || !who.isAdmin || !who.barbeariaId) {
-        return sendJson(res, 403, { error: "Apenas o dono pode acessar configurações." });
+      
+      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente
+      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+        return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
+      
       const result = await getBarbershopSettings(env, { barbeariaId: who.barbeariaId });
       if (!result.ok) return sendJson(res, 400, { error: result.message });
       return sendJson(res, 200, { shop: result.shop });
@@ -90,9 +93,12 @@ function servicesMiddleware(env: ServicesEnv) {
 
     if (path === "/api/shop/update") {
       if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed" });
-      if (who.role !== "barbeiro" || !who.isAdmin || !who.barbeariaId) {
-        return sendJson(res, 403, { error: "Apenas o dono pode atualizar configurações." });
+      
+      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente
+      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+        return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
+      
       const raw = await readBody(req).catch(() => "");
       let body: any = {};
       try {
@@ -130,10 +136,11 @@ function servicesMiddleware(env: ServicesEnv) {
       return sendJson(res, 200, { ok: true });
     }
 
-    // ---------- MASTER SERVICES (admin only) ----------
+    // ---------- MASTER SERVICES (admin and manager only) ----------
     if (path === "/api/services/master") {
-      if (who.role !== "barbeiro" || !who.isAdmin || !who.barbeariaId) {
-        return sendJson(res, 403, { error: "Apenas o dono pode gerenciar serviços." });
+      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente gerenciar serviços master
+      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+        return sendJson(res, 403, { error: "Acesso restrito à gestão de serviços (Dono ou Gerente)." });
       }
 
       if (req.method === "GET") {

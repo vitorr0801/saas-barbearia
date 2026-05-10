@@ -1,7 +1,3 @@
-/**
- * Cliente API da Equipe (Frontend)
- * Padrão Arquitetural: Fetch Wrapper Centralizado, Safe Parsing e DRY (Tier-1)
- */
 import { supabase } from "@/lib/supabase";
 
 export type TeamMember = {
@@ -13,7 +9,6 @@ export type TeamMember = {
   status: string | null;
 };
 
-// ⚙️ MOTOR CENTRAL DE REQUISIÇÕES (DRY)
 async function fetchTeamApi<T>(
   endpoint: string,
   options?: RequestInit
@@ -34,7 +29,6 @@ async function fetchTeamApi<T>(
       },
     });
 
-    // 🚀 SAFE PARSING (Resiliência de Payload)
     const text = await res.text();
     const json = text ? JSON.parse(text) : {};
 
@@ -49,20 +43,15 @@ async function fetchTeamApi<T>(
   }
 }
 
-// ==========================================
-// MÉTODOS PÚBLICOS DA API (Limpos e Diretos)
-// ==========================================
-
-/**
- * 📧 INVITE BARBER (Fluxo de Segurança Tier-1)
- * Implementa a estratégia de ID Determinístico para evitar divergências.
- */
-export async function inviteBarberByEmail(email: string): Promise<{ error?: string }> {
+export async function inviteBarberByEmail(
+  email: string, 
+  jobTitle: string = 'Barbeiro', 
+  providesServices: boolean = true
+): Promise<{ error?: string }> {
   try {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const cleanEmail = email.trim().toLowerCase();
     
-    // 1. Identifica o Dono e a Empresa
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return { error: "Usuário não autenticado." };
 
@@ -76,37 +65,30 @@ export async function inviteBarberByEmail(email: string): Promise<{ error?: stri
       return { error: "Apenas donos de barbearia podem convidar membros." };
     }
 
-    // 🚀 TIER-1: GERAÇÃO DETERMINÍSTICA DO TOKEN (Client-Side)
-    // Nós criamos o UUID aqui. Isso garante que não haverá divergência 
-    // entre o que vai para o banco e o que vai para o e-mail.
     const inviteId = crypto.randomUUID();
 
-    // 2. 🔐 INSERÇÃO NO BANCO (Force ID)
     const { error: inviteError } = await supabase
       .from('invites')
       .insert({
-        id: inviteId, // Forçamos o banco a usar o NOSSO ID
+        id: inviteId,
         email: cleanEmail,
         barbearia_id: profile.barbearia_id,
-        status: 'pendente'
+        status: 'pendente',
+        job_title: jobTitle,
+        provides_services: providesServices
       });
 
-    // 🎯 Validação extra: Se o e-mail já tem convite pendente, o banco pode dar erro
     if (inviteError) {
        console.error("Erro ao inserir convite:", inviteError);
        return { error: "Não foi possível criar o convite. Ele já existe?" };
     }
 
-    // 3. 🔗 MONTAGEM DO LINK SEGURO
-    const inviteLink = `${origin}/convite-aceito?token=${inviteId}`;
-
-    // 4. DISPARO DO E-MAIL (Passando a responsabilidade para a API)
-    const { error: apiError } = await fetchTeamApi("/invite", {
+    const inviteLink = `${origin}/login-barbeiro?type=invite&token=${inviteId}&email=${encodeURIComponent(cleanEmail)}`;    const { error: apiError } = await fetchTeamApi("/invite", {
       method: "POST",
       body: JSON.stringify({ 
         email: cleanEmail, 
         invite_link: inviteLink,
-        invite_id: inviteId // Mandamos o ID separado por garantia
+        invite_id: inviteId 
       }),
     });
 
@@ -118,7 +100,6 @@ export async function inviteBarberByEmail(email: string): Promise<{ error?: stri
   }
 }
 
-// ... métodos removeBarberById e listTeamMembers continuam iguais
 export async function removeBarberById(barberId: string): Promise<{ error?: string }> {
   const { error } = await fetchTeamApi("/remove", {
     method: "POST",

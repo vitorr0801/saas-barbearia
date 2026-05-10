@@ -16,7 +16,6 @@ import {
   Scissors, 
   CheckCircle2, 
   XCircle,
-  Phone,
   UserCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,9 +62,13 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  const isAdmin = Boolean(currentUser?.is_admin);
+  // 🚀 RBAC: PERMISSÕES DE GESTÃO DA AGENDA
+  const isOwner = Boolean(currentUser?.is_admin);
+  const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
   const barbeariaId = currentUser?.barbearia_id;
   const userId = currentUser?.id;
+
+  const canSeeAllAgendas = isOwner || userJob === "gerente" || userJob === "secretária" || userJob === "secretaria";
 
   const isoRange = useMemo(() => {
     const safeDate = isValid(selectedDay) ? selectedDay : new Date();
@@ -76,7 +79,7 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
   }, [selectedDay]);
 
   const { data: appointments = [], isLoading } = useQuery({
-    queryKey: ["daily-agenda", barbeariaId, userId, isoRange, filterProfessionalId],
+    queryKey: ["daily-agenda", barbeariaId, userId, isoRange, filterProfessionalId, canSeeAllAgendas],
     queryFn: async (): Promise<AgendaRow[]> => {
       if (!barbeariaId || !userId) return [];
 
@@ -93,7 +96,8 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
         .lte("appointment_date", isoRange.end)
         .order("appointment_date", { ascending: true });
 
-      if (!isAdmin) {
+      // Se não tem superpoderes, trava a busca no próprio ID
+      if (!canSeeAllAgendas) {
         q = q.eq("professional_id", userId);
       } else if (filterProfessionalId && filterProfessionalId !== "__all__") {
         q = q.eq("professional_id", filterProfessionalId);
@@ -130,8 +134,6 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
 
   return (
     <section className="dash-card w-full space-y-6 p-5 md:p-8 bg-card/40 backdrop-blur-md border-border/50">
-      
-      {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-border/50 pb-6">
         <div className="space-y-1">
           <h2 className="text-lg font-black uppercase italic tracking-tight text-foreground flex items-center gap-2">
@@ -156,7 +158,6 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
         </div>
       </div>
 
-      {/* BODY */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
@@ -174,9 +175,9 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
             const statusConfig = getStatusConfig(apt.status);
             const isFinished = ["concluido", "completed", "cancelado", "canceled"].includes(apt.status?.toLowerCase());
             
-            // 🛡️ REGRA DE OURO: O usuário só pode gerir o que for DELE
             const isOwnerOfApt = apt.professional_id === userId;
-            const canManage = isOwnerOfApt && !isFinished;
+            // 🚀 PODER DE CONCLUIR: É o dono do agendamento OU tem superpoderes!
+            const canManage = (isOwnerOfApt || canSeeAllAgendas) && !isFinished;
 
             const clientName = apt.client?.name || "Agendamento Manual";
             const professionalName = apt.professional?.name || "Indefinido";
@@ -185,11 +186,10 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
               <div key={apt.id} className={cn(
                 "group relative overflow-hidden rounded-2xl border border-border/60 bg-background/40 p-5 transition-all hover:bg-card/60",
                 isFinished && "opacity-60",
-                !isOwnerOfApt && "border-l-4 border-l-muted" // Indicador visual de que não é seu
+                !isOwnerOfApt && "border-l-4 border-l-muted"
               )}>
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   
-                  {/* HORÁRIO */}
                   <div className="flex items-center gap-4 shrink-0 lg:border-r lg:border-border/50 lg:pr-6">
                     <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                       <Clock className="h-6 w-6" />
@@ -204,14 +204,12 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
                     </div>
                   </div>
 
-                  {/* INFO DO CORTE E CLIENTE */}
                   <div className="flex-1 space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline" className={cn("text-[9px] font-black uppercase tracking-widest", statusConfig.class)}>
                         {statusConfig.label}
                       </Badge>
                       
-                      {/* 👤 INDICADOR DE PROFISSIONAL: Crucial para o Dono */}
                       <Badge variant="secondary" className="text-[9px] font-black uppercase tracking-widest bg-secondary/50 text-muted-foreground">
                         <UserCircle className="mr-1 h-3 w-3" /> {isOwnerOfApt ? "Meu Horário" : professionalName}
                       </Badge>
@@ -235,7 +233,6 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
                     </div>
                   </div>
 
-                  {/* AÇÕES (BOTÕES BLOQUEADOS SE NÃO FOR O DONO) */}
                   <div className="flex items-center gap-2 lg:pl-6 border-t border-border/50 lg:border-t-0 pt-4 lg:pt-0">
                     {canManage ? (
                       <>

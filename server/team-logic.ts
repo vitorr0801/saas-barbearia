@@ -49,13 +49,17 @@ export async function verifyOwnerFromAccessToken(
   const scoped = userClient(env.supabaseUrl, env.supabaseAnonKey, accessToken);
   const { data: profile, error: profErr } = await scoped
     .from("profiles")
-    .select("is_admin, barbearia_id, role")
+    .select("is_admin, barbearia_id, role, job_title")
     .eq("id", user.id)
     .maybeSingle();
 
   if (profErr) return { ok: false, message: "Não foi possível validar seu perfil." };
-  if (profile?.role !== "barbeiro" || !profile?.is_admin || !profile?.barbearia_id) {
-    return { ok: false, message: "Apenas o dono da barbearia pode gerenciar a equipe." };
+  
+  // 🚀 ENSINANDO O SERVIDOR QUEM É O GERENTE
+  const isManager = profile?.job_title === "Gerente" || profile?.job_title === "gerente";
+
+  if (profile?.role !== "barbeiro" || !profile?.barbearia_id || (!profile?.is_admin && !isManager)) {
+    return { ok: false, message: "Apenas o dono ou o gerente podem gerenciar a equipe." };
   }
 
   return { ok: true, userId: user.id, barbeariaId: profile.barbearia_id as string };

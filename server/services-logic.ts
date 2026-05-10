@@ -28,7 +28,7 @@ export async function verifyUserFromAccessToken(
   env: ServicesEnv,
   accessToken: string,
 ): Promise<
-  | { ok: true; userId: string; barbeariaId: string | null; isAdmin: boolean; role: string | null }
+  | { ok: true; userId: string; barbeariaId: string | null; isAdmin: boolean; role: string | null; isManager: boolean }
   | { ok: false; message: string }
 > {
   const anon = createClient(env.supabaseUrl, env.supabaseAnonKey);
@@ -36,14 +36,17 @@ export async function verifyUserFromAccessToken(
     data: { user },
     error: authErr,
   } = await anon.auth.getUser(accessToken);
+  
   if (authErr || !user) {
     return { ok: false, message: "Sessão inválida ou expirada." };
   }
 
   const scoped = userClient(env.supabaseUrl, env.supabaseAnonKey, accessToken);
+  
+  // 🚀 Lendo o job_title do banco!
   const { data: profile, error: profErr } = await scoped
     .from("profiles")
-    .select("role, is_admin, barbearia_id")
+    .select("role, is_admin, barbearia_id, job_title")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -51,12 +54,15 @@ export async function verifyUserFromAccessToken(
     return { ok: false, message: "Não foi possível validar seu perfil." };
   }
 
+  const userJob = (profile.job_title as string | null || "barbeiro").toLowerCase().trim();
+
   return {
     ok: true,
     userId: user.id,
     barbeariaId: (profile.barbearia_id as string | null) ?? null,
     isAdmin: Boolean(profile.is_admin),
     role: (profile.role as string | null) ?? null,
+    isManager: userJob === "gerente", // 🚀 Expondo a flag de Gerente para o middleware!
   };
 }
 

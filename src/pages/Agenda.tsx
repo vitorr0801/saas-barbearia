@@ -15,15 +15,19 @@ export default function Agenda() {
   const { currentUser } = useAuth();
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
 
-  // 🛡️ Identificação e Permissões de Isolamento (Tenant Isolation)
-  const isAdmin = Boolean(currentUser?.is_admin);
+  // 🛡️ IDENTIFICAÇÃO E PERMISSÕES DE ISOLAMENTO (RBAC)
+  const isOwner = Boolean(currentUser?.is_admin);
+  const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
   const barbeariaId = currentUser?.barbearia_id;
   const userId = currentUser?.id;
 
-  // 🚀 BUSCA MENSAL ISOLADA: Descobre quais dias têm compromissos
+  // Gerentes e Secretárias podem ver todos os agendamentos da loja
+  const canSeeAllAgendas = isOwner || userJob === "gerente" || userJob === "secretária" || userJob === "secretaria";
+
+  // 🚀 BUSCA MENSAL ISOLADA
   const { data: bookedDays = [] } = useQuery({
-    // 🎯 CHAVE DE CACHE BLINDADA: Adicionamos o userId e isAdmin para o navegador nunca misturar contas
-    queryKey: ["booked-days-month", barbeariaId, userId, isAdmin, startOfMonth(selectedDay)],
+    // Chave de cache inclui 'canSeeAllAgendas' para evitar conflito de tela
+    queryKey: ["booked-days-month", barbeariaId, userId, canSeeAllAgendas, startOfMonth(selectedDay)],
     queryFn: async () => {
       if (!barbeariaId || !userId) return [];
       
@@ -33,18 +37,16 @@ export default function Agenda() {
         .eq("barbearia_id", barbeariaId)
         .gte("appointment_date", startOfMonth(selectedDay).toISOString())
         .lte("appointment_date", endOfMonth(selectedDay).toISOString())
-        .not("status", "eq", "cancelado"); // Não mostrar pontinho para cancelados
+        .not("status", "eq", "cancelado");
 
-      // 🛡️ REGRA DE ISOLAMENTO: 
-      // Se não for dono, puxa rigorosamente apenas as "bolinhas" do próprio profissional
-      if (!isAdmin) {
+      // Se NÃO tiver superpoder, vê apenas as suas próprias "bolinhas"
+      if (!canSeeAllAgendas) {
         q = q.eq("professional_id", userId);
       }
 
       const { data, error } = await q;
       if (error) throw error;
 
-      // Transforma as datas em um Array de objetos Date únicos
       return data?.map(a => new Date(a.appointment_date)) || [];
     },
     enabled: !!barbeariaId && !!userId,
@@ -63,7 +65,7 @@ export default function Agenda() {
               Gestão de Agenda
             </h1>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">
-              {isAdmin ? "Ocupação mensal da barbearia" : "Sua ocupação mensal"}
+              {canSeeAllAgendas ? "Ocupação mensal da barbearia" : "Sua ocupação mensal"}
             </p>
           </div>
         </header>
@@ -76,7 +78,6 @@ export default function Agenda() {
                 selected={selectedDay}
                 onSelect={(date) => date && setSelectedDay(date)}
                 className="rounded-2xl"
-                // 🎯 INDICADORES DE ELITE: O pontinho dinâmico renderizado com segurança
                 modifiers={{ booked: bookedDays }}
                 modifiersClassNames={{ 
                   booked: "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-primary after:rounded-full" 
@@ -92,7 +93,6 @@ export default function Agenda() {
             />
           </main>
         </div>
-
       </div>
     </AppLayout>
   );

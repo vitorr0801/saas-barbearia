@@ -57,14 +57,22 @@ export default function MyAppointments() {
     enabled: !!currentUser?.id,
   });
 
+  // 🚀 LÓGICA DE TEMPO E STATUS MUNDIAL
   const { upcoming, history } = useMemo(() => {
     const now = new Date();
+    
+    // Funções auxiliares para avaliar com precisão e blindar variações no banco
+    const isCompleted = (status: string) => ["concluido", "completed"].includes(status?.toLowerCase());
+    const isCanceled = (status: string) => ["cancelado", "canceled", "cancelled"].includes(status?.toLowerCase());
+
     return {
       upcoming: appointments.filter((apt: any) => 
-        apt.status !== 'canceled' && new Date(apt.appointment_date) >= now
+        // Pra ser "Próximo" NÃO pode estar concluído, NÃO pode estar cancelado E a data tem que ser no futuro
+        !isCanceled(apt.status) && !isCompleted(apt.status) && new Date(apt.appointment_date) >= now
       ),
       history: appointments.filter((apt: any) => 
-        apt.status === 'canceled' || new Date(apt.appointment_date) < now
+        // Se cancelou OU se o barbeiro apertou concluir OU se a data já expirou, joga no histórico
+        isCanceled(apt.status) || isCompleted(apt.status) || new Date(apt.appointment_date) < now
       ).reverse()
     };
   }, [appointments]);
@@ -92,6 +100,21 @@ export default function MyAppointments() {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao cancelar", description: error.message });
     }
+  };
+
+  // UI Engine: Gera as cores de Tag Dinamicamente baseada na verdade do banco
+  const getStatusTag = (apt: any, isPastTime: boolean) => {
+    const status = apt.status?.toLowerCase();
+    if (["cancelado", "canceled", "cancelled"].includes(status)) {
+      return { text: "Cancelado", class: "bg-destructive/10 text-destructive border-destructive/20" };
+    }
+    if (["concluido", "completed"].includes(status) || isPastTime) {
+      return { text: "Concluído", class: "bg-muted text-muted-foreground border-border" };
+    }
+    if (status === "pending") {
+      return { text: "Pendente", class: "bg-amber-500/10 text-amber-500 border-amber-500/20" };
+    }
+    return { text: "Confirmado", class: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" };
   };
 
   return (
@@ -167,22 +190,28 @@ export default function MyAppointments() {
               const formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
               const formattedTime = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
               
-              const isCanceled = apt.status === 'canceled';
-              const isPast = dateObj < new Date();
+              const isPastTime = dateObj < new Date();
+              const statusStr = apt.status?.toLowerCase() || '';
+              
+              // Define logicamente se já é item do passado para a UI bloquear cliques
+              const isHistoryItem = isPastTime || ["concluido", "completed", "cancelado", "canceled", "cancelled"].includes(statusStr);
+              const isActuallyCanceled = ["cancelado", "canceled", "cancelled"].includes(statusStr);
+
+              const tagConfig = getStatusTag(apt, isPastTime);
 
               return (
                 <div 
                   key={apt.id} 
                   className={cn(
                     "group bg-card border border-border p-6 md:p-8 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all",
-                    isCanceled || isPast ? "opacity-60 grayscale-[50%]" : "hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 border-l-4 border-l-primary"
+                    isHistoryItem ? "opacity-60 grayscale-[50%]" : "hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 border-l-4 border-l-primary"
                   )}
                 >
                   {/* Bloco 1: Serviço e Profissional */}
                   <div className="flex items-center gap-5">
                     <div className={cn(
                       "w-14 h-14 rounded-2xl flex items-center justify-center transition-colors shrink-0",
-                      isCanceled ? "bg-destructive/10 text-destructive" : isPast ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                      isActuallyCanceled ? "bg-destructive/10 text-destructive" : isHistoryItem ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
                     )}>
                       <Scissors className="h-6 w-6" />
                     </div>
@@ -205,7 +234,7 @@ export default function MyAppointments() {
                   <div className="flex flex-col sm:flex-row md:justify-end items-start sm:items-center gap-6 w-full md:w-auto border-t border-border/50 md:border-t-0 pt-6 md:pt-0">
                     <div className="flex flex-col gap-2">
                       <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
-                        {isPast && !isCanceled ? "Realizado em" : isCanceled ? "Cancelado em" : "Data e Hora"}
+                        {isHistoryItem && !isActuallyCanceled ? "Realizado em" : isActuallyCanceled ? "Cancelado em" : "Data e Hora"}
                       </span>
                       <div className="flex items-center gap-2 font-bold text-xs">
                         <div className="flex items-center gap-1.5 bg-secondary px-3 py-1.5 rounded-full border border-border whitespace-nowrap text-foreground">
@@ -220,15 +249,12 @@ export default function MyAppointments() {
                     <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                       <div className={cn(
                         "px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest border w-full sm:w-auto text-center",
-                        isCanceled ? "bg-destructive/10 text-destructive border-destructive/20" : 
-                        isPast ? "bg-muted text-muted-foreground border-border" :
-                        apt.status === 'pending' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : 
-                        "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        tagConfig.class
                       )}>
-                        {isCanceled ? 'Cancelado' : isPast ? 'Concluído' : apt.status === 'pending' ? 'Pendente' : 'Confirmado'}
+                        {tagConfig.text}
                       </div>
 
-                      {!isCanceled && !isPast ? (
+                      {!isHistoryItem ? (
                         <button
                           onClick={() => openCancelModal(apt.id, apt.service_name ?? apt.services?.name ?? "Serviço")}
                           className="text-[10px] font-black uppercase text-muted-foreground hover:text-destructive transition-colors flex justify-center w-full sm:w-auto items-center gap-1.5 mt-1 underline underline-offset-4 decoration-border hover:decoration-destructive/30"

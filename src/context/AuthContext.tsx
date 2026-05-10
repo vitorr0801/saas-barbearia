@@ -14,6 +14,9 @@ export interface AuthUser {
   role: Role; 
   barbearia_id: string | null; 
   is_admin: boolean;
+  // 🚀 NOVAS PROPRIEDADES DO RBAC
+  job_title?: string;
+  provides_services?: boolean;
 }
 
 interface AuthContextValue {
@@ -80,6 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: profileData.role as Role,
           barbearia_id: finalBarbeariaId,
           is_admin: isAdmin,
+          // 🚀 Lendo e populando os dados do banco para o App inteiro usar!
+          job_title: profileData.job_title || "Barbeiro",
+          provides_services: profileData.provides_services ?? true,
         });
       }
     } catch (err) {
