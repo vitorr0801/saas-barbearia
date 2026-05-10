@@ -269,11 +269,22 @@ export default function ClientPortal() {
 
         {isAuthenticated && favoriteShops.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* 🚀 OTIMIZAÇÃO: Slice injetado diretamente na passagem de prop. Mostra só os 3 primeiros. */}
             <FavoriteSection 
-              favorites={favoriteShops} 
+              favorites={favoriteShops.slice(0, 3)} 
               favoriteIds={favoriteIds} 
               onSelectShop={handleProtectedAction} 
             />
+            {favoriteShops.length > 3 && (
+              <div className="mt-4 flex justify-end">
+                <button 
+                  onClick={() => navigate("/favoritos")}
+                  className="text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                >
+                  Ver todos os favoritos <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 

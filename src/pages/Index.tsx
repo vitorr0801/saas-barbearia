@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
-import { generateSlotsFromShift, normalizeTimeHHMM } from "@/lib/bookingSlots"; // Removemos o ptBrDateToDayKey (não precisamos mais de strings!)
+import { generateSlotsFromShift, normalizeTimeHHMM } from "@/lib/bookingSlots"; 
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceCard } from "@/components/booking/ServiceCard";
@@ -130,96 +130,115 @@ export default function Index() {
   const [searchParams] = useSearchParams();
   const shopId = searchParams.get("shop")?.trim() || null;
 
-  const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toLocaleDateString("pt-BR"));
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
 
-  const onSelectService = useCallback((id: string) => {
-    setSelectedService(id);
-    setSelectedProfessional(null);
-    setSelectedTime(null);
-  }, []);
-
+  // Zera as escolhas subsequentes se mudar o profissional
   const onSelectProfessional = useCallback((id: string) => {
     setSelectedProfessional(id);
+    setSelectedService(null);
     setSelectedTime(null);
   }, []);
 
-  const { data: services = [], isLoading: isLoadingServices } = useQuery({
-    queryKey: ["booking-services", shopId],
-    queryFn: async (): Promise<ServiceRow[]> => {
-      if (!shopId) return [];
-      const { data, error } = await supabase
-        .from("services")
-        .select("id, name, price, duration_min")
-        .eq("barbearia_id", shopId)
-        .order("name", { ascending: true });
+  const onSelectService = useCallback((id: string) => {
+    setSelectedService(id);
+    setSelectedTime(null);
+  }, []);
 
-      if (error) throw error;
-      return (data ?? []).map((row: { id: string; name: string; price: number; duration_min: number }) => ({
-        id: row.id,
-        name: row.name,
-        duration: formatDuration(row.duration_min),
-        price: formatBRL(row.price),
-        durationMin: row.duration_min,
-        priceNumber: row.price,
-      }));
-    },
-    enabled: !!shopId,
-  });
-
+  // 📡 PASSO 1: Busca de TODOS os profissionais aptos da barbearia
   const { data: professionals = [], isLoading: isLoadingProfessionals } = useQuery({
-    queryKey: ["booking-barbers", shopId, selectedService],
+    queryKey: ["booking-barbers-all", shopId],
     queryFn: async (): Promise<ProfessionalRow[]> => {
-      if (!shopId || !selectedService) return [];
+      if (!shopId) return [];
 
-      const { data: links, error: e1 } = await supabase
-        .from("barber_services")
-        .select("barber_id")
-        .eq("service_id", selectedService)
-        .eq("is_active", true);
-
-      if (e1) throw e1;
-      const ids = [...new Set((links ?? []).map((l: { barber_id: string }) => l.barber_id))];
-      if (ids.length === 0) return [];
-
-      const { data: profs, error: e2 } = await supabase
+      const { data: profs, error } = await supabase
         .from("profiles")
         .select("id, name, instagram")
-        .in("id", ids)
         .eq("barbearia_id", shopId)
-        .eq("role", "barbeiro");
+        .eq("role", "barbeiro")
+        // 🚀 TIER-1 SEGURANÇA: Exige explicitamente que a pessoa corte cabelo! 
+        .eq("provides_services", true);
 
-      if (e2) throw e2;
+      if (error) throw error;
 
-      return (profs ?? []).map((p: { id: string; name: string; instagram: string | null }) => ({
+      return (profs ?? []).map((p: any) => ({
         id: p.id,
         name: p.name ?? "Barbeiro",
         specialty: p.instagram ? `@${p.instagram.replace(/^@/, "")}` : undefined,
       }));
     },
-    enabled: !!shopId && !!selectedService,
+    enabled: !!shopId,
   });
 
-  const selectedServiceRow = useMemo(
-    () => services.find((s) => s.id === selectedService) ?? null,
-    [services, selectedService],
-  );
+  // 📡 PASSO 2: Busca os serviços APENAS DO PROFISSIONAL SELECIONADO com VALOR DINÂMICO
+  const { data: services = [], isLoading: isLoadingServices } = useQuery({
+    queryKey: ["booking-services-by-pro", shopId, selectedProfessional],
+    queryFn: async (): Promise<ServiceRow[]> => {
+      if (!shopId || !selectedProfessional) return [];
+      
+      // 1. Busca os links ativos do barbeiro (Trazendo os valores personalizados!)
+      // Puxamos "select(*)" para garantir blindagem contra nomes de colunas que podem variar
+      const { data: links, error: e1 } = await supabase
+        .from("barber_services")
+        .select("*")
+        .eq("barber_id", selectedProfessional)
+        .eq("is_active", true);
+
+      if (e1) throw e1;
+      const serviceIds = [...new Set((links ?? []).map((l: any) => l.service_id))];
+      
+      if (serviceIds.length === 0) return [];
+
+      // 2. Busca os dados Master do serviço
+      const { data, error: e2 } = await supabase
+        .from("services")
+        .select("id, name, price, duration_min")
+        .in("id", serviceIds)
+        .eq("barbearia_id", shopId)
+        .order("name", { ascending: true });
+
+      if (e2) throw e2;
+
+      // 3. Mapeia mesclando os valores (Priorizando o Personalizado do Barbeiro)
+      return (data ?? []).map((row: any) => {
+        const link = links.find((l: any) => l.service_id === row.id);
+        
+        // 🚀 A MÁGICA: Se o barbeiro tem preço/tempo específico (custom_price ou price na tabela bridge), usamos o dele.
+        // O fallback encadeado blinda o sistema não importando a nomenclatura exata do banco.
+        const finalPrice = link?.custom_price ?? link?.price ?? row.price;
+        const finalDuration = link?.custom_duration ?? link?.custom_duration_min ?? link?.duration_min ?? row.duration_min;
+
+        return {
+          id: row.id,
+          name: row.name,
+          duration: formatDuration(finalDuration),
+          price: formatBRL(finalPrice),
+          durationMin: finalDuration,
+          priceNumber: finalPrice,
+        };
+      });
+    },
+    enabled: !!shopId && !!selectedProfessional,
+  });
 
   const selectedProfessionalRow = useMemo(
     () => professionals.find((p) => p.id === selectedProfessional) ?? null,
     [professionals, selectedProfessional],
   );
 
-  // 🚀 TIER-1: Tradução direta da Data escolhida para Inteiro (0 a 6)
-  // O Javascript nativo converte isso perfeitamente e combinando com o Postgres.
+  const selectedServiceRow = useMemo(
+    () => services.find((s) => s.id === selectedService) ?? null,
+    [services, selectedService],
+  );
+
   const dayOfWeekInt = useMemo(() => {
     if (!selectedDate) return null;
     const [day, month, year] = selectedDate.split("/").map(Number);
     const dateObj = new Date(year, month - 1, day);
-    return dateObj.getDay(); // Retorna 0 para Dom, 1 para Seg, etc.
+    return dateObj.getDay(); 
   }, [selectedDate]);
 
   const { data: workHourRow, isLoading: isLoadingWorkHours } = useQuery({
@@ -231,7 +250,6 @@ export default function Index() {
         .from("barber_work_hours")
         .select("start_time, end_time")
         .eq("barber_id", selectedProfessional)
-        // 🚀 CORREÇÃO CIRÚRGICA: Coluna "day_of_week" e valor "dayOfWeekInt" (Integer)
         .eq("day_of_week", dayOfWeekInt) 
         .maybeSingle();
 
@@ -255,7 +273,7 @@ export default function Index() {
         .eq("professional_id", selectedProfessional)
         .gte("appointment_date", dayStart.toISOString())
         .lte("appointment_date", dayEnd.toISOString())
-        .neq("status", "cancelado");
+        .not("status", "in", '("cancelado", "canceled", "cancelled")'); 
 
       if (error) throw error;
 
@@ -269,18 +287,17 @@ export default function Index() {
     enabled: !!selectedProfessional && !!selectedDate,
   });
 
-  const slotsLoading =
-    !!(selectedService && selectedProfessional && shopId) && (isLoadingWorkHours || isLoadingOccupied);
+  const slotsLoading = !!(selectedService && selectedProfessional && shopId) && (isLoadingWorkHours || isLoadingOccupied);
 
   const dynamicTimeSlots = useMemo(() => {
     if (!selectedServiceRow || !selectedProfessional || dayOfWeekInt === null) return [];
-
-    if (!workHourRow) return []; // Se não houver horário gravado para esse dia da semana, retorna lista vazia.
+    if (!workHourRow) return []; 
 
     const start = normalizeTimeHHMM(workHourRow.start_time);
     const end = normalizeTimeHHMM(workHourRow.end_time);
     if (!start || !end) return [];
 
+    // O gerador de slots agora usa o tempo personalizado do barbeiro automaticamente
     const rawSlots = generateSlotsFromShift(workHourRow.start_time, workHourRow.end_time, selectedServiceRow.durationMin);
 
     const now = new Date();
@@ -304,13 +321,9 @@ export default function Index() {
   const isBookingReady = selectedService && selectedProfessional && selectedDate && selectedTime;
 
   const handleProceedToCheckout = async () => {
-    const service = services.find((s) => s.id === selectedService);
-    const professional = professionals.find((p) => p.id === selectedProfessional);
-    if (!shopId || !service || !professional || !selectedTime) return;
+    if (!shopId || !selectedServiceRow || !selectedProfessionalRow || !selectedTime) return;
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setAuthDialogOpen(true);
       return;
@@ -322,12 +335,12 @@ export default function Index() {
 
     const payload: BookingCheckoutState = {
       shopId,
-      serviceId: service.id,
-      serviceName: service.name,
-      servicePrice: service.priceNumber,
-      totalPriceDisplay: service.price,
-      professionalId: professional.id,
-      professionalName: professional.name,
+      serviceId: selectedServiceRow.id,
+      serviceName: selectedServiceRow.name,
+      servicePrice: selectedServiceRow.priceNumber, 
+      totalPriceDisplay: selectedServiceRow.price,  
+      professionalId: selectedProfessionalRow.id,
+      professionalName: selectedProfessionalRow.name,
       appointmentDate: finalAppointmentDate.toISOString(),
       dateLabel: selectedDate === new Date().toLocaleDateString("pt-BR") ? "Hoje" : selectedDate,
       time: selectedTime,
@@ -336,13 +349,7 @@ export default function Index() {
     navigate("/checkout", { state: payload });
   };
 
-  const availabilityLabel =
-    selectedDate === new Date().toLocaleDateString("pt-BR") ? "Hoje" : selectedDate;
-
-  const slotEmptyMessage =
-    !selectedService || !selectedProfessional
-      ? "Selecione serviço e profissional para ver os horários"
-      : undefined;
+  const availabilityLabel = selectedDate === new Date().toLocaleDateString("pt-BR") ? "Hoje" : selectedDate;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -371,48 +378,24 @@ export default function Index() {
           </div>
         )}
 
-        {/* Passo 1: Serviços */}
+        {/* Passo 1: Profissional Primeiro */}
         <section className="space-y-4 animate-fade-in">
           <div className="flex items-center gap-3">
             <span className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
               1
             </span>
-            <h2 className="text-lg font-black uppercase italic tracking-tight">O que vamos fazer hoje?</h2>
-          </div>
-          <div className="space-y-3">
-            {isLoadingServices && shopId ? (
-              [1, 2, 3].map((i) => (
-                <div key={i} className="h-24 w-full bg-secondary/50 animate-pulse rounded-2xl border border-border/50" />
-              ))
-            ) : (
-              services.map((s) => (
-                <ServiceCard key={s.id} service={s} isSelected={selectedService === s.id} onSelect={onSelectService} />
-              ))
-            )}
-            {!isLoadingServices && shopId && services.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">Nenhum serviço cadastrado nesta barbearia.</p>
-            )}
-          </div>
-        </section>
-
-        {/* Passo 2: Profissional */}
-        <section className="space-y-4 animate-fade-in delay-100">
-          <div className="flex items-center gap-3">
-            <span className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
-              2
-            </span>
             <h2 className="text-lg font-black uppercase italic tracking-tight">Com quem deseja cortar?</h2>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-            {!selectedService ? (
-              <p className="text-xs text-muted-foreground py-4">Escolha um serviço para listar os profissionais.</p>
-            ) : isLoadingProfessionals ? (
+            {isLoadingProfessionals ? (
               [1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex flex-col items-center gap-2 p-3 shrink-0">
                   <div className="h-16 w-16 rounded-full bg-secondary/50 animate-pulse ring-2 ring-offset-2 ring-offset-background" />
                   <div className="h-3 w-16 bg-secondary/50 animate-pulse rounded" />
                 </div>
               ))
+            ) : professionals.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4">Nenhum profissional com agenda disponível.</p>
             ) : (
               professionals.map((p) => (
                 <ProfessionalCard
@@ -423,8 +406,35 @@ export default function Index() {
                 />
               ))
             )}
-            {!isLoadingProfessionals && selectedService && professionals.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4">Nenhum profissional disponível para este serviço.</p>
+          </div>
+        </section>
+
+        {/* Passo 2: Serviço condicionado ao Profissional com Precificação Dinâmica */}
+        <section className="space-y-4 animate-fade-in delay-100">
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
+              selectedProfessional ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>
+              2
+            </span>
+            <h2 className={cn("text-lg font-black uppercase italic tracking-tight transition-colors", selectedProfessional ? "text-foreground" : "text-muted-foreground")}>
+              O que vamos fazer hoje?
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {!selectedProfessional ? (
+               <p className="text-xs text-muted-foreground py-4 px-2">Selecione um profissional acima para ver os serviços dele.</p>
+            ) : isLoadingServices ? (
+              [1, 2].map((i) => (
+                <div key={i} className="h-24 w-full bg-secondary/50 animate-pulse rounded-2xl border border-border/50" />
+              ))
+            ) : services.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Este profissional não possui serviços ativos.</p>
+            ) : (
+              services.map((s) => (
+                <ServiceCard key={s.id} service={s} isSelected={selectedService === s.id} onSelect={onSelectService} />
+              ))
             )}
           </div>
         </section>
@@ -432,30 +442,40 @@ export default function Index() {
         {/* Passo 3: Calendário e Horários */}
         <section className="space-y-6 animate-fade-in delay-200">
           <div className="flex items-center gap-3">
-            <span className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-primary-foreground">
+            <span className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-colors",
+              selectedService && selectedProfessional ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>
               3
             </span>
-            <h2 className="text-lg font-black uppercase italic tracking-tight">Data e Horário</h2>
+            <h2 className={cn("text-lg font-black uppercase italic tracking-tight transition-colors", selectedService && selectedProfessional ? "text-foreground" : "text-muted-foreground")}>
+              Data e Horário
+            </h2>
           </div>
 
-          <CalendarPicker
-            selectedDate={selectedDate}
-            onSelect={(date) => {
-              setSelectedDate(date);
-              setSelectedTime(null);
-            }}
-          />
+          {selectedService && selectedProfessional && (
+            <CalendarPicker
+              selectedDate={selectedDate}
+              onSelect={(date) => {
+                setSelectedDate(date);
+                setSelectedTime(null);
+              }}
+            />
+          )}
 
           <div className="space-y-4">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-              Disponibilidade para {availabilityLabel}
-            </p>
+            {selectedService && selectedProfessional && (
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                Disponibilidade para {availabilityLabel}
+              </p>
+            )}
+            
             <TimeSlotGrid
               slots={dynamicTimeSlots}
               selectedSlot={selectedTime}
               onSelect={setSelectedTime}
               isLoading={slotsLoading}
-              emptyMessage={slotEmptyMessage}
+              emptyMessage={!selectedProfessional || !selectedService ? "Selecione o profissional e o serviço." : "Nenhum horário disponível para esta data."}
             />
           </div>
         </section>

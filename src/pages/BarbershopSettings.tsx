@@ -150,12 +150,23 @@ export default function BarbershopSettings() {
     }
   };
 
+  // 🚀 LÓGICA ATUALIZADA: Limite rígido de 3 categorias na interface
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       const parts = parseTags(categoryInput);
       if (parts.length === 0) return;
-      setCategories((prev) => Array.from(new Set([...prev, ...parts])));
+      
+      setCategories((prev) => {
+        const combined = Array.from(new Set([...prev, ...parts]));
+        
+        if (combined.length > 3) {
+          toast.error("Escolha apenas as 3 especialidades principais da sua vitrine.");
+          return combined.slice(0, 3);
+        }
+        
+        return combined;
+      });
       setCategoryInput("");
     }
   };
@@ -185,14 +196,13 @@ export default function BarbershopSettings() {
     return pub?.publicUrl ?? null;
   };
 
-  // 🚀 TIER-1: Motor de Geocoding Inteligente em Cascata
   const fetchIntelligentCoordinates = async (streetStr: string, numStr: string, neighStr: string, cityStr: string, stateStr: string) => {
     try {
       const queries = [
-        `${streetStr}, ${numStr}, ${neighStr}, ${cityStr}, ${stateStr}, Brasil`, // 1. Tentativa Exata
-        `${streetStr}, ${cityStr}, ${stateStr}, Brasil`, // 2. Rua + Cidade
-        `${neighStr}, ${cityStr}, ${stateStr}, Brasil`,  // 3. Bairro + Cidade
-        `${cityStr}, ${stateStr}, Brasil`                // 4. Apenas Cidade (Garante que nunca retorne NULL)
+        `${streetStr}, ${numStr}, ${neighStr}, ${cityStr}, ${stateStr}, Brasil`, 
+        `${streetStr}, ${cityStr}, ${stateStr}, Brasil`, 
+        `${neighStr}, ${cityStr}, ${stateStr}, Brasil`,  
+        `${cityStr}, ${stateStr}, Brasil`                
       ];
 
       for (const q of queries) {
@@ -218,11 +228,10 @@ export default function BarbershopSettings() {
       let locationPoint = savedLocation;
       const currentAddressForm = `${street}|${addressNumber}|${neighborhood}|${city}|${state}`;
 
-      // 🚀 TIER-1: Só ativa a API externa se o endereço foi modificado OU se não há localização no banco
       if (currentAddressForm !== initialAddressRef.current || !savedLocation) {
         if (city && state) {
            locationPoint = await fetchIntelligentCoordinates(street, addressNumber, neighborhood, city, state);
-           initialAddressRef.current = currentAddressForm; // Atualiza o cache de segurança
+           initialAddressRef.current = currentAddressForm; 
         }
       }
 
@@ -284,7 +293,6 @@ export default function BarbershopSettings() {
     const toastId = toast.loading(editingService ? "Atualizando..." : "Criando...");
     
     try {
-      // 1. Salva no banco
       if (!editingService) {
         const { error } = await createMasterServiceClient({ name, price, duration_min: durationMin });
         if (error) throw new Error(error);
@@ -293,7 +301,6 @@ export default function BarbershopSettings() {
         if (error) throw new Error(error);
       }
       
-      // 2. TIER-1: Busca a lista atualizada do banco, evitando manipulação manual de array que gera crash
       const { services: updatedServices, error: fetchErr } = await listMasterServices();
       if (fetchErr) throw new Error(fetchErr);
       
@@ -313,7 +320,6 @@ export default function BarbershopSettings() {
       const { error } = await deleteMasterServiceClient(s.id);
       if (error) throw new Error(error);
       
-      // Atualiza de forma segura
       const { services: updatedServices } = await listMasterServices();
       setServices(updatedServices || []);
       
@@ -375,8 +381,8 @@ export default function BarbershopSettings() {
                     <Input value={shopName} onChange={(e) => setShopName(e.target.value)} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Tags (Aperte Enter)</Label>
-                    <Input placeholder="Ex: Cabelo, Cerveja" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} onKeyDown={handleCategoryKeyDown} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Tags Principais (Máx. 3)</Label>
+                    <Input placeholder="Ex: Cabelo, Barba" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} onKeyDown={handleCategoryKeyDown} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                     {categories.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-2">
                         {categories.map((cat) => (
