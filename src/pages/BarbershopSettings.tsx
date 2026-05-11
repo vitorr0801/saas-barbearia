@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { 
   ImageIcon, Plus, Settings2, Trash2, Pencil, UploadCloud, 
-  Scissors, MapPin, Store, Instagram, Phone, Search, Clock
+  Scissors, MapPin, Store, Instagram, Phone, Search, Clock, Tag
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { getMyShopSettings, updateMyShopSettings } from "@/lib/shop-client";
@@ -31,6 +32,11 @@ function formatCEP(value: string) {
 function parseTags(input: string): string[] {
   return input.split(/[,;]/).map((t) => t.trim()).filter(Boolean);
 }
+
+const DIAS_SEMANA = [
+  { id: 0, label: "Dom" }, { id: 1, label: "Seg" }, { id: 2, label: "Ter" },
+  { id: 3, label: "Qua" }, { id: 4, label: "Qui" }, { id: 5, label: "Sex" }, { id: 6, label: "Sáb" }
+];
 
 export default function BarbershopSettings() {
   const [loading, setLoading] = useState(true);
@@ -57,7 +63,6 @@ export default function BarbershopSettings() {
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const numberInputRef = useRef<HTMLInputElement>(null);
 
-  // 🚀 TIER-1: Cache Inteligente de Localização
   const [savedLocation, setSavedLocation] = useState<any | null>(null);
   const initialAddressRef = useRef<string>("");
 
@@ -65,11 +70,15 @@ export default function BarbershopSettings() {
   const [services, setServices] = useState<MasterService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
-  const [editingService, setEditingService] = useState<MasterService | null>(null);
+  const [editingService, setEditingService] = useState<any | null>(null);
   
   const [svcName, setSvcName] = useState("");
   const [svcPrice, setSvcPrice] = useState("");
   const [svcDuration, setSvcDuration] = useState("");
+  
+  // 🚀 ESTADOS DA PROMOÇÃO
+  const [svcPromoPercentage, setSvcPromoPercentage] = useState("0");
+  const [svcPromoDays, setSvcPromoDays] = useState<number[]>([]);
   const [svcSaving, setSvcSaving] = useState(false);
 
   const coverPreviewUrl = useMemo(() => {
@@ -108,7 +117,6 @@ export default function BarbershopSettings() {
       setCity(shop?.city ?? "");
       setState(shop?.state ?? "");
 
-      // Salva o estado atual para evitar re-processamento desnecessário (Otimização)
       setSavedLocation(shop?.location ?? null);
       initialAddressRef.current = `${shop?.street ?? ""}|${shop?.address_number ?? ""}|${shop?.neighborhood ?? ""}|${shop?.city ?? ""}|${shop?.state ?? ""}`;
 
@@ -150,7 +158,6 @@ export default function BarbershopSettings() {
     }
   };
 
-  // 🚀 LÓGICA ATUALIZADA: Limite rígido de 3 categorias na interface
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
@@ -265,20 +272,27 @@ export default function BarbershopSettings() {
     }
   };
 
-  // --- CONTROLE BLINDADO DE SERVIÇOS ---
+  const togglePromoDay = (dayId: number) => {
+    setSvcPromoDays(prev => prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]);
+  };
+
   const openCreateService = () => {
     setEditingService(null); 
     setSvcName(""); 
     setSvcPrice(""); 
     setSvcDuration(""); 
+    setSvcPromoPercentage("0"); 
+    setSvcPromoDays([]); 
     setServiceModalOpen(true);
   };
 
-  const openEditService = (s: MasterService) => {
+  const openEditService = (s: any) => {
     setEditingService(s); 
     setSvcName(s.name); 
     setSvcPrice(String(s.price)); 
     setSvcDuration(String(s.duration_min)); 
+    setSvcPromoPercentage(String(s.promo_percentage || 0));
+    setSvcPromoDays(s.promo_days || []);
     setServiceModalOpen(true);
   };
 
@@ -286,18 +300,27 @@ export default function BarbershopSettings() {
     const name = svcName.trim();
     const price = Number(String(svcPrice).replace(",", "."));
     const durationMin = Number(String(svcDuration).replace(",", "."));
+    const promoPercentage = Number(svcPromoPercentage);
     
-    if (!name || price <= 0 || durationMin <= 0) return toast.error("Preencha os campos de serviço corretamente.");
+    if (!name || price <= 0 || durationMin <= 0) return toast.error("Preencha os campos obrigatórios corretamente.");
 
     setSvcSaving(true);
     const toastId = toast.loading(editingService ? "Atualizando..." : "Criando...");
     
     try {
+      const payload = {
+        name, 
+        price, 
+        duration_min: durationMin,
+        promo_percentage: promoPercentage,
+        promo_days: svcPromoDays
+      };
+
       if (!editingService) {
-        const { error } = await createMasterServiceClient({ name, price, duration_min: durationMin });
+        const { error } = await createMasterServiceClient(payload as any);
         if (error) throw new Error(error);
       } else {
-        const { error } = await updateMasterServiceClient({ ...editingService, name, price, duration_min: durationMin });
+        const { error } = await updateMasterServiceClient({ ...editingService, ...payload } as any);
         if (error) throw new Error(error);
       }
       
@@ -479,10 +502,10 @@ export default function BarbershopSettings() {
                 </Button>
               </div>
 
-              {/* ABA 3: SERVIÇOS MASTER */}
+              {/* ABA 3: SERVIÇOS MASTER E PROMOÇÕES */}
               <div className={cn("space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500", activeTab === "servicos" ? "block" : "hidden")}>
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs text-muted-foreground font-medium">Cardápio Global. Cada barbeiro poderá ativar esses serviços em seus perfis.</p>
+                  <p className="text-xs text-muted-foreground font-medium">Cardápio Global e Dias Promocionais.</p>
                   <Button onClick={openCreateService} className="h-10 rounded-xl bg-primary text-primary-foreground font-black uppercase text-[10px] tracking-widest shadow-none hover:bg-primary/90 shrink-0">
                     <Plus className="h-4 w-4 mr-1.5" /> Novo Serviço
                   </Button>
@@ -497,21 +520,38 @@ export default function BarbershopSettings() {
                   </div>
                 ) : (
                   <div className="grid gap-3">
-                    {services.map((s) => (
-                      <div key={s.id} className="group rounded-2xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 hover:border-primary/30 transition-all p-4 flex items-center justify-between gap-4">
-                        <div>
-                          <p className="font-bold text-foreground text-sm">{s.name}</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[11px] font-mono text-primary font-bold">R$ {Number(s.price).toFixed(2).replace(".", ",")}</span>
-                            <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1"><Clock className="w-3 h-3"/> {formatDuration(s.duration_min)}</span>
+                    {services.map((s: any) => {
+                      // 🚀 VERIFICAÇÃO SEGURA: Transforma em Number para evitar falsos positivos do Javascript
+                      const promoPerc = Number(s.promo_percentage) || 0;
+                      const hasPromo = promoPerc > 0;
+                      const promoDaysText = hasPromo && Array.isArray(s.promo_days) ? s.promo_days.map((d: number) => DIAS_SEMANA[d].label).join(", ") : "";
+
+                      return (
+                        <div key={s.id} className="group rounded-2xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 hover:border-primary/30 transition-all p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div>
+                            <div className="font-bold text-foreground text-sm flex items-center gap-2">
+                              {s.name}
+                              
+                              {/* 🚀 O TERNÁRIO MÁGICO: Se não tiver promoção, retorna "null", evitando que ele mostre o zero na tela */}
+                              {hasPromo ? (
+                                <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[9px] font-black uppercase px-2 py-0.5 whitespace-nowrap">
+                                  {promoPerc}% OFF ({promoDaysText})
+                                </Badge>
+                              ) : null}
+                              
+                            </div>
+                            <div className="flex items-center gap-3 mt-1.5">
+                              <span className="text-[11px] font-mono text-primary font-bold">R$ {Number(s.price).toFixed(2).replace(".", ",")}</span>
+                              <span className="text-[11px] text-muted-foreground font-medium flex items-center gap-1"><Clock className="w-3 h-3"/> {formatDuration(s.duration_min)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg border-border/50 hover:bg-white/5" onClick={() => openEditService(s)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg border-destructive/20 hover:bg-destructive/10" onClick={() => void deleteService(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg border-border/50 hover:bg-white/5" onClick={() => openEditService(s)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg border-destructive/20 hover:bg-destructive/10" onClick={() => void deleteService(s)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -529,16 +569,14 @@ export default function BarbershopSettings() {
             <DialogTitle className="font-black uppercase italic tracking-tighter text-xl text-foreground">
               {editingService ? "Editar Serviço" : "Criar Serviço Master"}
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Este serviço ficará disponível para a barbearia inteira.
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-2">
               <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Nome do Serviço</Label>
               <Input value={svcName} onChange={(e) => setSvcName(e.target.value)} className="h-12 rounded-xl bg-secondary/50 border-none" disabled={svcSaving} placeholder="Ex: Corte Degrade" />
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Preço (R$)</Label>
@@ -549,6 +587,46 @@ export default function BarbershopSettings() {
                 <Input inputMode="numeric" value={svcDuration} onChange={(e) => setSvcDuration(e.target.value)} className="h-12 rounded-xl bg-secondary/50 border-none font-mono" disabled={svcSaving} placeholder="30" />
               </div>
             </div>
+
+            <div className="p-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 space-y-4">
+              <div className="flex items-center gap-2 text-emerald-500">
+                <Tag className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Promoção Dinâmica</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[9px] uppercase font-black tracking-[0.2em] text-emerald-500/70">Desconto (%)</Label>
+                <Input 
+                  type="number" 
+                  value={svcPromoPercentage} 
+                  onChange={(e) => setSvcPromoPercentage(e.target.value)} 
+                  className="h-12 rounded-xl bg-background border-emerald-500/20 text-emerald-500 font-black focus-visible:ring-emerald-500" 
+                  placeholder="Ex: 20"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[9px] uppercase font-black tracking-[0.2em] text-emerald-500/70">Válido nos Dias</Label>
+                <div className="flex flex-wrap gap-2">
+                  {DIAS_SEMANA.map((day) => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      onClick={() => togglePromoDay(day.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all border shrink-0",
+                        svcPromoDays.includes(day.id) 
+                          ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20" 
+                          : "bg-background border-border text-muted-foreground hover:border-emerald-500/40"
+                      )}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div className="mt-8 pt-6 border-t border-border flex gap-3">

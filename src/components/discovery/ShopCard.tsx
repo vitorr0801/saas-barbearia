@@ -14,7 +14,7 @@ export interface Shop {
   image?: string;      
   coverImage?: string; 
   rating: number;
-  reviewCount?: number;
+  reviewCount: number;
   neighborhood: string;
   startingPrice: number;
   categories: string[];
@@ -55,10 +55,18 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c12] via-transparent to-transparent opacity-80" />
             
             <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
-              <Badge className="bg-black/60 backdrop-blur-xl text-white border-white/10 gap-1.5 h-9 px-3 shadow-xl">
-                <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-                <span className="text-[11px] font-black">{shop.rating.toFixed(1)}</span>
-              </Badge>
+              
+              {/* 🚀 REGRA DE UX: SÓ MOSTRA SE TIVER 5 OU MAIS AVALIAÇÕES */}
+              {shop.reviewCount >= 5 ? (
+                <Badge className="bg-black/60 backdrop-blur-xl text-white border-white/10 gap-1.5 h-9 px-3 shadow-xl">
+                  <Star className="h-3.5 w-3.5 fill-[#FFB800] text-[#FFB800]" />
+                  <span className="text-[11px] font-black">{Number(shop.rating).toFixed(1)}</span>
+                </Badge>
+              ) : (
+                <Badge className="bg-primary/20 backdrop-blur-xl text-primary border-primary/20 gap-1.5 h-9 px-3 shadow-xl">
+                  <span className="text-[9px] font-black uppercase tracking-widest">Novo</span>
+                </Badge>
+              )}
 
               <FavoriteButton 
                 targetId={shop.id} 
@@ -82,7 +90,6 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
             </div>
           </div>
 
-          {/* 🚀 OTIMIZAÇÃO MUNDIAL: Array cortado para mostrar no máximo 3 especialidades */}
           {Array.isArray(shop.categories) && shop.categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {shop.categories.slice(0, 3).map((cat) => (
@@ -105,7 +112,7 @@ export function ShopCard({ shop, onSelect, isFavorite }: ShopCardProps) {
           <div className="flex flex-col">
             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-50">Investimento</span>
             <span className="text-sm font-black text-primary italic">
-              R$ {shop.startingPrice}
+              {shop.startingPrice > 0 ? `A partir de R$ ${Number(shop.startingPrice).toFixed(2)}` : 'Consulte'}
             </span>
           </div>
           

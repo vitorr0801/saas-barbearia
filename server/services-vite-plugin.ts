@@ -77,11 +77,9 @@ function servicesMiddleware(env: ServicesEnv) {
       return;
     }
 
-    // ---------- SHOP SETTINGS (admin and manager only) ----------
     if (path === "/api/shop/me") {
       if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed" });
       
-      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente
       if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
         return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
@@ -94,7 +92,6 @@ function servicesMiddleware(env: ServicesEnv) {
     if (path === "/api/shop/update") {
       if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed" });
       
-      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente
       if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
         return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
@@ -114,7 +111,6 @@ function servicesMiddleware(env: ServicesEnv) {
       
       if (!name || name.length < 2) return sendJson(res, 400, { error: "Nome inválido." });
 
-      // 🚀 TIER-1: Coletando o Payload Completo
       const result = await updateBarbershopSettings(env, {
         barbeariaId: who.barbeariaId,
         name,
@@ -136,11 +132,9 @@ function servicesMiddleware(env: ServicesEnv) {
       return sendJson(res, 200, { ok: true });
     }
 
-    // ---------- MASTER SERVICES (admin and manager only) ----------
     if (path === "/api/services/master") {
-      // 🚀 DESTRANCANDO O COFRE: Permite Dono OU Gerente gerenciar serviços master
       if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
-        return sendJson(res, 403, { error: "Acesso restrito à gestão de serviços (Dono ou Gerente)." });
+        return sendJson(res, 403, { error: "Acesso restrito à gestão de serviços." });
       }
 
       if (req.method === "GET") {
@@ -157,43 +151,43 @@ function servicesMiddleware(env: ServicesEnv) {
         return sendJson(res, 400, { error: "JSON inválido." });
       }
 
-      if (req.method === "POST") {
+      if (req.method === "POST" || req.method === "PUT") {
         const name = typeof body.name === "string" ? body.name.trim() : "";
         const price = typeof body.price === "number" ? body.price : Number(body.price);
-        const durationMin =
-          typeof body.duration_min === "number" ? body.duration_min : Number(body.duration_min);
-        if (!name) return sendJson(res, 400, { error: "Nome obrigatório." });
-        if (!Number.isFinite(price) || price <= 0) return sendJson(res, 400, { error: "Preço inválido." });
-        if (!Number.isFinite(durationMin) || durationMin <= 0) return sendJson(res, 400, { error: "Duração inválida." });
-        const result = await createMasterService(env, {
-          barbeariaId: who.barbeariaId,
-          name,
-          price,
-          durationMin,
-        });
-        if (!result.ok) return sendJson(res, 400, { error: result.message });
-        return sendJson(res, 200, { service: result.service });
-      }
+        const durationMin = typeof body.duration_min === "number" ? body.duration_min : Number(body.duration_min);
+        
+        // 🚀 CORRIGIDO: Coletando a promoção com precisão
+        const promoPercentage = Number(body.promo_percentage) || 0;
+        const promoDays = Array.isArray(body.promo_days) ? body.promo_days : [];
 
-      if (req.method === "PUT") {
-        const serviceId = typeof body.id === "string" ? body.id : "";
-        const name = typeof body.name === "string" ? body.name.trim() : "";
-        const price = typeof body.price === "number" ? body.price : Number(body.price);
-        const durationMin =
-          typeof body.duration_min === "number" ? body.duration_min : Number(body.duration_min);
-        if (!serviceId) return sendJson(res, 400, { error: "id obrigatório." });
         if (!name) return sendJson(res, 400, { error: "Nome obrigatório." });
-        if (!Number.isFinite(price) || price <= 0) return sendJson(res, 400, { error: "Preço inválido." });
-        if (!Number.isFinite(durationMin) || durationMin <= 0) return sendJson(res, 400, { error: "Duração inválida." });
-        const result = await updateMasterService(env, {
-          barbeariaId: who.barbeariaId,
-          serviceId,
-          name,
-          price,
-          durationMin,
-        });
-        if (!result.ok) return sendJson(res, 400, { error: result.message });
-        return sendJson(res, 200, { ok: true });
+
+        if (req.method === "POST") {
+          const result = await createMasterService(env, {
+            barbeariaId: who.barbeariaId,
+            name,
+            price,
+            durationMin,
+            promoPercentage, // 🚀 Agora está enviando o nome certo!
+            promoDays,       // 🚀 Agora está enviando o nome certo!
+          });
+          if (!result.ok) return sendJson(res, 400, { error: result.message });
+          return sendJson(res, 200, { service: result.service });
+        } else {
+          const serviceId = typeof body.id === "string" ? body.id : "";
+          if (!serviceId) return sendJson(res, 400, { error: "id obrigatório." });
+          const result = await updateMasterService(env, {
+            barbeariaId: who.barbeariaId,
+            serviceId,
+            name,
+            price,
+            durationMin,
+            promoPercentage, // 🚀 Agora está enviando o nome certo!
+            promoDays,       // 🚀 Agora está enviando o nome certo!
+          });
+          if (!result.ok) return sendJson(res, 400, { error: result.message });
+          return sendJson(res, 200, { ok: true });
+        }
       }
 
       if (req.method === "DELETE") {
@@ -207,7 +201,6 @@ function servicesMiddleware(env: ServicesEnv) {
       return sendJson(res, 405, { error: "Method not allowed" });
     }
 
-    // ---------- BARBER TOGGLES (barber logged) ----------
     if (path === "/api/services/barber") {
       if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed" });
       if (who.role !== "barbeiro" || !who.barbeariaId) {

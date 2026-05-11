@@ -15,12 +15,14 @@ import { FeaturedShops } from "@/components/discovery/FeaturedShops"
 import { FavoriteSection } from "@/components/discovery/FavoriteSection"
 import { Sparkles, ArrowRight, ShieldAlert, MapPin, XCircle } from "lucide-react"
 
+// Mocks atualizados com os novos campos para evitar quebra no design
 const MOCK_SHOPS = [
   {
     id: "mock-1",
     name: "Barbearia Vintage",
     image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=60",
     rating: 4.9,
+    reviewCount: 120,
     neighborhood: "Asa Norte",
     startingPrice: 45,
     categories: ["cabelo", "barba"],
@@ -30,7 +32,8 @@ const MOCK_SHOPS = [
     id: "mock-2",
     name: "Corte & Estilo",
     image: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800&auto=format&fit=crop&q=60",
-    rating: 4.7,
+    rating: 0, // Simulando uma barbearia nova
+    reviewCount: 0,
     neighborhood: "Sudoeste",
     startingPrice: 55,
     categories: ["cabelo"],
@@ -47,7 +50,7 @@ export default function ClientPortal() {
   
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // 📡 1. BUSCA DE BARBEARIAS
+  // 📡 1. BUSCA DE BARBEARIAS (Agora puxando as Notas e Preços Reais!)
   const { data: realShops = [], isLoading: shopsLoading } = useQuery({
     queryKey: ["featured-shops-real", userLocation],
     queryFn: async () => {
@@ -55,7 +58,7 @@ export default function ClientPortal() {
         const { data, error } = await supabase.rpc("get_nearby_barbershops", {
           client_lat: userLocation.lat,
           client_lng: userLocation.lng,
-          radius_km: 7 // 🚀 TIER-1: Raio Hiperlocal Otimizado para 7km
+          radius_km: 7 
         });
         
         if (error) throw error;
@@ -67,14 +70,16 @@ export default function ClientPortal() {
           categories: [], 
           coverImage: s.cover_image ?? null,
           distance: s.distancia_metros,
-          rating: 4.8,
-          startingPrice: 55,
+          rating: s.rating ?? 0,
+          reviewCount: s.review_count ?? 0,
+          startingPrice: s.starting_price ?? 55,
         }));
       }
       
       const { data, error } = await supabase
         .from("barbearias")
-        .select("id, name, neighborhood, categories, cover_image, status")
+        // 🚀 ADICIONADO: rating, review_count e starting_price
+        .select("id, name, neighborhood, categories, cover_image, status, rating, review_count, starting_price")
         .eq("status", "active");
         
       if (error) throw error;
@@ -85,8 +90,9 @@ export default function ClientPortal() {
         neighborhood: s.neighborhood ?? "—",
         categories: Array.isArray(s.categories) ? s.categories : [],
         coverImage: s.cover_image ?? null,
-        rating: 4.8,
-        startingPrice: 55,
+        rating: s.rating ?? 0,
+        reviewCount: s.review_count ?? 0,
+        startingPrice: s.starting_price ?? 0,
       }));
     },
     staleTime: 1000 * 60 * 5, 
@@ -215,7 +221,6 @@ export default function ClientPortal() {
             onUseLocation={handleUseLocation} 
           />
           
-          {/* 🚀 TIER-1 UX: Indicador Visual atualizado para 7km */}
           {userLocation && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold uppercase tracking-widest animate-in zoom-in-95 duration-300">
               <span className="relative flex h-2 w-2">
@@ -269,7 +274,6 @@ export default function ClientPortal() {
 
         {isAuthenticated && favoriteShops.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* 🚀 OTIMIZAÇÃO: Slice injetado diretamente na passagem de prop. Mostra só os 3 primeiros. */}
             <FavoriteSection 
               favorites={favoriteShops.slice(0, 3)} 
               favoriteIds={favoriteIds} 

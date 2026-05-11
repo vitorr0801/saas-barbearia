@@ -10,11 +10,14 @@ async function parseJson<T>(res: Response): Promise<T & ApiErrorBody> {
   }
 }
 
+// 🚀 A TIPAGEM AGORA CONHECE A PROMOÇÃO!
 export type MasterService = {
   id: string;
   name: string;
   price: number;
   duration_min: number;
+  promo_percentage?: number; // Liberado para passar
+  promo_days?: number[];     // Liberado para passar
 };
 
 async function authHeader(): Promise<{ Authorization: string } | null> {
@@ -35,10 +38,13 @@ export async function listMasterServices(): Promise<{ services: MasterService[];
   return { services: data.services ?? [] };
 }
 
+// 🚀 O INPUT DE CRIAÇÃO AGORA ACEITA A PROMOÇÃO!
 export async function createMasterServiceClient(input: {
   name: string;
   price: number;
   duration_min: number;
+  promo_percentage?: number;
+  promo_days?: number[];
 }): Promise<{ service?: MasterService; error?: string }> {
   const headers = await authHeader();
   if (!headers) return { error: "Faça login novamente." };
@@ -53,6 +59,7 @@ export async function createMasterServiceClient(input: {
   return { service: data.service };
 }
 
+// 🚀 COMO O TIPO DE INPUT É 'MasterService', O UPDATE AGORA TAMBÉM ENVIA OS DESCONTOS
 export async function updateMasterServiceClient(input: MasterService): Promise<{ error?: string }> {
   const headers = await authHeader();
   if (!headers) return { error: "Faça login novamente." };
@@ -113,4 +120,3 @@ export async function toggleMyService(serviceId: string, isActive: boolean): Pro
   if (!res.ok) return { error: data.error || "Não foi possível atualizar." };
   return {};
 }
-

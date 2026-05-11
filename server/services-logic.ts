@@ -43,7 +43,6 @@ export async function verifyUserFromAccessToken(
 
   const scoped = userClient(env.supabaseUrl, env.supabaseAnonKey, accessToken);
   
-  // 🚀 Lendo o job_title do banco!
   const { data: profile, error: profErr } = await scoped
     .from("profiles")
     .select("role, is_admin, barbearia_id, job_title")
@@ -62,7 +61,7 @@ export async function verifyUserFromAccessToken(
     barbeariaId: (profile.barbearia_id as string | null) ?? null,
     isAdmin: Boolean(profile.is_admin),
     role: (profile.role as string | null) ?? null,
-    isManager: userJob === "gerente", // 🚀 Expondo a flag de Gerente para o middleware!
+    isManager: userJob === "gerente", 
   };
 }
 
@@ -71,6 +70,8 @@ export type ServiceRow = {
   name: string;
   price: number;
   duration_min: number;
+  promo_percentage?: number; // 🚀 INJETADO
+  promo_days?: number[];     // 🚀 INJETADO
 };
 
 export async function listMasterServicesForShop(
@@ -80,7 +81,8 @@ export async function listMasterServicesForShop(
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
     .from("services")
-    .select("id, name, price, duration_min")
+    // 🚀 Lendo do banco
+    .select("id, name, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
 
@@ -90,7 +92,8 @@ export async function listMasterServicesForShop(
 
 export async function createMasterService(
   env: ServicesEnv,
-  params: { barbeariaId: string; name: string; price: number; durationMin: number },
+  // 🚀 Aceitando os parâmetros
+  params: { barbeariaId: string; name: string; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true; service: ServiceRow } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
@@ -100,8 +103,11 @@ export async function createMasterService(
       name: params.name,
       price: params.price,
       duration_min: params.durationMin,
+      // 🚀 Gravando no banco
+      promo_percentage: params.promoPercentage || 0,
+      promo_days: params.promoDays || [],
     })
-    .select("id, name, price, duration_min")
+    .select("id, name, price, duration_min, promo_percentage, promo_days")
     .single();
 
   if (error || !data) return { ok: false, message: error?.message || "Falha ao criar serviço." };
@@ -110,7 +116,7 @@ export async function createMasterService(
 
 export async function updateMasterService(
   env: ServicesEnv,
-  params: { barbeariaId: string; serviceId: string; name: string; price: number; durationMin: number },
+  params: { barbeariaId: string; serviceId: string; name: string; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { error } = await admin
@@ -119,6 +125,9 @@ export async function updateMasterService(
       name: params.name,
       price: params.price,
       duration_min: params.durationMin,
+      // 🚀 Atualizando no banco
+      promo_percentage: params.promoPercentage || 0,
+      promo_days: params.promoDays || [],
     })
     .eq("id", params.serviceId)
     .eq("barbearia_id", params.barbeariaId);
@@ -153,7 +162,7 @@ export async function listBarberServiceToggles(
 
   const { data: master, error: masterErr } = await admin
     .from("services")
-    .select("id, name, price, duration_min")
+    .select("id, name, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
 
@@ -183,7 +192,6 @@ export async function upsertBarberServiceToggle(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
 
-  // Garante que o service_id pertence à barbearia do barbeiro (evita toggle cross-shop)
   const { data: svc, error: svcErr } = await admin
     .from("services")
     .select("id")
@@ -210,7 +218,6 @@ export async function upsertBarberServiceToggle(
   return { ok: true };
 }
 
-// 🚀 TIER-1: Expandido para suportar todos os dados do Onboarding
 export type BarbershopSettingsRow = {
   id: string;
   name: string | null;
@@ -235,7 +242,6 @@ export async function getBarbershopSettings(
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
     .from("barbearias")
-    // 🚀 O "Feitiço de Abertura": Pede pro banco todas as colunas novas
     .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, phone, location")
     .eq("id", params.barbeariaId)
     .maybeSingle();
@@ -246,7 +252,6 @@ export async function getBarbershopSettings(
   return { ok: true, shop: data as BarbershopSettingsRow };
 }
 
-// 🚀 TIER-1: Expandido para salvar todos os dados
 export async function updateBarbershopSettings(
   env: ServicesEnv,
   params: {
