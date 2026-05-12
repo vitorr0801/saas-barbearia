@@ -76,7 +76,7 @@ export default function BarbershopSettings() {
   const [svcPrice, setSvcPrice] = useState("");
   const [svcDuration, setSvcDuration] = useState("");
   
-  // 🚀 ESTADOS DA PROMOÇÃO
+  // ESTADOS DA PROMOÇÃO
   const [svcPromoPercentage, setSvcPromoPercentage] = useState("0");
   const [svcPromoDays, setSvcPromoDays] = useState<number[]>([]);
   const [svcSaving, setSvcSaving] = useState(false);
@@ -504,8 +504,11 @@ export default function BarbershopSettings() {
 
               {/* ABA 3: SERVIÇOS MASTER E PROMOÇÕES */}
               <div className={cn("space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500", activeTab === "servicos" ? "block" : "hidden")}>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs text-muted-foreground font-medium">Cardápio Global e Dias Promocionais.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <p className="text-xs text-muted-foreground font-medium leading-relaxed max-w-[450px]">
+                    Cardápio Global e Dias Promocionais. <br />
+                    <span className="text-primary/80">Aqui você define os valores base da barbearia. Caso algum profissional tenha um valor diferente, você poderá alterar o valor na aba <strong>EQUIPE</strong>.</span>
+                  </p>
                   <Button onClick={openCreateService} className="h-10 rounded-xl bg-primary text-primary-foreground font-black uppercase text-[10px] tracking-widest shadow-none hover:bg-primary/90 shrink-0">
                     <Plus className="h-4 w-4 mr-1.5" /> Novo Serviço
                   </Button>
@@ -521,7 +524,6 @@ export default function BarbershopSettings() {
                 ) : (
                   <div className="grid gap-3">
                     {services.map((s: any) => {
-                      // 🚀 VERIFICAÇÃO SEGURA: Transforma em Number para evitar falsos positivos do Javascript
                       const promoPerc = Number(s.promo_percentage) || 0;
                       const hasPromo = promoPerc > 0;
                       const promoDaysText = hasPromo && Array.isArray(s.promo_days) ? s.promo_days.map((d: number) => DIAS_SEMANA[d].label).join(", ") : "";
@@ -531,14 +533,11 @@ export default function BarbershopSettings() {
                           <div>
                             <div className="font-bold text-foreground text-sm flex items-center gap-2">
                               {s.name}
-                              
-                              {/* 🚀 O TERNÁRIO MÁGICO: Se não tiver promoção, retorna "null", evitando que ele mostre o zero na tela */}
                               {hasPromo ? (
                                 <Badge className="bg-emerald-500/10 text-emerald-500 border-none text-[9px] font-black uppercase px-2 py-0.5 whitespace-nowrap">
                                   {promoPerc}% OFF ({promoDaysText})
                                 </Badge>
                               ) : null}
-                              
                             </div>
                             <div className="flex items-center gap-3 mt-1.5">
                               <span className="text-[11px] font-mono text-primary font-bold">R$ {Number(s.price).toFixed(2).replace(".", ",")}</span>

@@ -30,7 +30,10 @@ export default function Team() {
 
   const [servicesModal, setServicesModal] = useState<{ id: string; name: string } | null>(null);
   const [hoursModal, setHoursModal] = useState<{ id: string; name: string } | null>(null);
+  
   const [removeTarget, setRemoveTarget] = useState<TeamMemberExtended | null>(null);
+  // 🚀 ESTADO PARA O NOVO MODAL DE CONFIRMAÇÃO DA AGENDA
+  const [agendaToggleTarget, setAgendaToggleTarget] = useState<{ id: string; name: string; current: boolean } | null>(null);
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members", barbeariaId],
@@ -159,7 +162,8 @@ export default function Team() {
                   key={m.id} 
                   member={m} 
                   isSelf={m.id === currentUser?.id}
-                  onToggleAgenda={(id, current) => toggleAgendaMutation.mutate({ id, current })}
+                  // 🚀 AGORA ELE ABRE O MODAL AO INVÉS DE ALTERAR DIRETO
+                  onToggleAgenda={(id, current) => setAgendaToggleTarget({ id, name: m.name || m.email, current })}
                   onUpdateCommission={(id, rate) => updateCommissionMutation.mutate({ id, rate })}
                   onRemove={setRemoveTarget}
                   onOpenHours={(id, name) => setHoursModal({ id, name })}
@@ -186,6 +190,7 @@ export default function Team() {
         barberName={hoursModal?.name || ""}
       />
 
+      {/* MODAL DE REMOÇÃO DE MEMBRO */}
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent className="rounded-2xl border-border bg-card">
           <AlertDialogHeader>
@@ -202,6 +207,37 @@ export default function Team() {
               onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
             >
               {removeMutation.isPending ? "Removendo..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 🚀 NOVO MODAL DE ALTERAÇÃO DA AGENDA */}
+      <AlertDialog open={!!agendaToggleTarget} onOpenChange={(open) => !open && setAgendaToggleTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-border bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {agendaToggleTarget?.current ? "Pausar" : "Reativar"} agenda de {agendaToggleTarget?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {agendaToggleTarget?.current 
+                ? "Ao desativar, este profissional ficará oculto no aplicativo e os clientes não poderão agendar novos horários com ele. Tem certeza que deseja continuar?"
+                : "Ao reativar, este profissional voltará a ficar visível no aplicativo e os clientes poderão agendar novos horários normalmente. Tem certeza que deseja continuar?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={toggleAgendaMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              className={agendaToggleTarget?.current ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"} 
+              disabled={toggleAgendaMutation.isPending}
+              onClick={() => {
+                if (agendaToggleTarget) {
+                  toggleAgendaMutation.mutate({ id: agendaToggleTarget.id, current: agendaToggleTarget.current });
+                  setAgendaToggleTarget(null); // Fecha o modal imediatamente para UX mais rápida
+                }
+              }}
+            >
+              {agendaToggleTarget?.current ? "Sim, pausar agenda" : "Sim, reativar agenda"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
