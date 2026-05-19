@@ -65,13 +65,15 @@ export async function verifyUserFromAccessToken(
   };
 }
 
+// 🚀 TIER-1: Tipagem Master atualizada com a Description
 export type ServiceRow = {
   id: string;
   name: string;
+  description?: string | null; // 👈 A descrição agora é reconhecida pelo servidor!
   price: number;
   duration_min: number;
-  promo_percentage?: number; // 🚀 INJETADO
-  promo_days?: number[];     // 🚀 INJETADO
+  promo_percentage?: number; 
+  promo_days?: number[];     
 };
 
 export async function listMasterServicesForShop(
@@ -81,8 +83,8 @@ export async function listMasterServicesForShop(
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
     .from("services")
-    // 🚀 Lendo do banco
-    .select("id, name, price, duration_min, promo_percentage, promo_days")
+    // 🚀 Incluímos a description no SELECT explícito para economia de banda (evitar SELECT *)
+    .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
 
@@ -92,8 +94,8 @@ export async function listMasterServicesForShop(
 
 export async function createMasterService(
   env: ServicesEnv,
-  // 🚀 Aceitando os parâmetros
-  params: { barbeariaId: string; name: string; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
+  // 🚀 Assinatura atualizada para receber a descrição
+  params: { barbeariaId: string; name: string; description?: string | null; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true; service: ServiceRow } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
@@ -101,13 +103,13 @@ export async function createMasterService(
     .insert({
       barbearia_id: params.barbeariaId,
       name: params.name,
+      description: params.description || null, // 🚀 Injeção segura no banco (se vazio, vira null)
       price: params.price,
       duration_min: params.durationMin,
-      // 🚀 Gravando no banco
       promo_percentage: params.promoPercentage || 0,
       promo_days: params.promoDays || [],
     })
-    .select("id, name, price, duration_min, promo_percentage, promo_days")
+    .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .single();
 
   if (error || !data) return { ok: false, message: error?.message || "Falha ao criar serviço." };
@@ -116,16 +118,17 @@ export async function createMasterService(
 
 export async function updateMasterService(
   env: ServicesEnv,
-  params: { barbeariaId: string; serviceId: string; name: string; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
+  // 🚀 Assinatura atualizada
+  params: { barbeariaId: string; serviceId: string; name: string; description?: string | null; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { error } = await admin
     .from("services")
     .update({
       name: params.name,
+      description: params.description !== undefined ? params.description : null, // 🚀 Atualizando o campo no banco
       price: params.price,
       duration_min: params.durationMin,
-      // 🚀 Atualizando no banco
       promo_percentage: params.promoPercentage || 0,
       promo_days: params.promoDays || [],
     })
@@ -162,7 +165,8 @@ export async function listBarberServiceToggles(
 
   const { data: master, error: masterErr } = await admin
     .from("services")
-    .select("id, name, price, duration_min, promo_percentage, promo_days")
+    // 🚀 Incluindo na listagem para não quebrar a tipagem do barbeiro
+    .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
 
@@ -173,7 +177,7 @@ export async function listBarberServiceToggles(
   const { data: links, error: linksErr } = await admin
     .from("barber_services")
     .select("service_id, is_active")
-    .eq("barber_id", params.barberId);
+    .eq("professional_id", params.barberId);
 
   if (linksErr) {
     return { ok: false, message: linksErr.message || "Falha ao listar seus serviços." };
@@ -207,11 +211,11 @@ export async function upsertBarberServiceToggle(
     .from("barber_services")
     .upsert(
       {
-        barber_id: params.barberId,
+        professional_id: params.barberId,
         service_id: params.serviceId,
         is_active: params.isActive,
       },
-      { onConflict: "barber_id,service_id" },
+      { onConflict: "professional_id,service_id" },
     );
 
   if (error) return { ok: false, message: error.message || "Falha ao atualizar seus serviços." };
@@ -231,7 +235,7 @@ export type BarbershopSettingsRow = {
   city: string | null;
   state: string | null;
   instagram_url: string | null;
-  phone: string | null;
+  whatsapp: string | null;
   location: any | null;
 };
 
@@ -240,9 +244,10 @@ export async function getBarbershopSettings(
   params: { barbeariaId: string },
 ): Promise<{ ok: true; shop: BarbershopSettingsRow } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
+  
   const { data, error } = await admin
     .from("barbearias")
-    .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, phone, location")
+    .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, whatsapp, location")
     .eq("id", params.barbeariaId)
     .maybeSingle();
 
@@ -267,11 +272,12 @@ export async function updateBarbershopSettings(
     city?: string | null;
     state?: string | null;
     instagram_url?: string | null;
-    phone?: string | null;
+    whatsapp?: string | null;
     location?: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
+  
   const { error } = await admin
     .from("barbearias")
     .update({
@@ -286,7 +292,7 @@ export async function updateBarbershopSettings(
       city: params.city,
       state: params.state,
       instagram_url: params.instagram_url,
-      phone: params.phone,
+      whatsapp: params.whatsapp,
       location: params.location,
     })
     .eq("id", params.barbeariaId);

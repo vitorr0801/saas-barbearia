@@ -23,38 +23,40 @@ export function CTASection() {
           <div className="relative p-10 md:p-20 text-center space-y-8">
             
             {/* Badge de Fechamento */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4 shadow-inner">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
                 Acesso Imediato à Plataforma
               </span>
             </div>
 
-            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-foreground leading-[0.9]">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black italic uppercase tracking-tighter text-foreground leading-[0.9]">
               O SEU IMPÉRIO <br />
-              <span className="text-primary text-5xl md:text-7xl">COMEÇA AQUI.</span>
+              <span className="text-primary text-5xl md:text-7xl lg:text-8xl">COMEÇA AQUI.</span>
             </h2>
 
-            <p className="text-muted-foreground max-w-2xl mx-auto text-sm md:text-lg font-medium leading-relaxed uppercase tracking-tight opacity-80">
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm md:text-base font-bold leading-relaxed uppercase tracking-widest opacity-80">
               Não deixe o seu lucro na mão do acaso. Junte-se à elite das barbearias que 
-              já escalaram seus negócios com o <strong>BarberPro</strong>.
+              já automatizaram sua gestão com o <strong>BarberPro</strong>.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6">
+              {/* 🚀 TIER-1 FIX: Rota B2B Absoluta e Copywriting Direto */}
               <button 
-                onClick={() => navigate("/cadastro")}
-                className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 px-12 py-6 bg-primary text-primary-foreground font-black italic uppercase text-xl rounded-2xl transition-all hover:scale-105 hover:shadow-[0_20px_50px_rgba(245,158,11,0.3)] active:scale-95"
+                onClick={() => navigate("/login-barbeiro")}
+                className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 px-10 py-6 bg-primary text-primary-foreground font-black italic uppercase text-lg lg:text-xl rounded-2xl transition-all hover:scale-105 hover:shadow-[0_20px_50px_rgba(245,158,11,0.3)] active:scale-95"
               >
-                Experimentar o Modo Elite
+                Começar 30 Dias Grátis
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
               </button>
             </div>
 
-            {/* Micro-Copy de Segurança */}
+            {/* Micro-Copy de Segurança (Quebra de Objeções Finais) */}
             <div className="flex flex-wrap items-center justify-center gap-6 pt-10 border-t border-white/5 mt-10">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <ShieldCheck className="w-4 h-4 text-primary" />
-                14 Dias de Teste Grátis
+                {/* 🚀 TIER-1 FIX: Consistência Comercial com o FAQ */}
+                30 Dias de Teste Grátis
               </div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                 <Zap className="w-4 h-4 text-primary" />

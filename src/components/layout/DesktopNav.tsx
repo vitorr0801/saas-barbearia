@@ -1,4 +1,7 @@
-import { Calendar, LayoutDashboard, Package, Scissors, User, Wallet, LogOut, ChevronDown, Users, Settings } from "lucide-react";
+"use client"
+
+import React, { useMemo } from "react";
+import { Calendar, Scissors, User, LogOut, ChevronDown, Heart, LayoutDashboard, Compass } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -16,22 +19,23 @@ export function DesktopNav() {
   const navigate = useNavigate();
 
   const isBarbeiro = role === "barbeiro";
-  
-  // 🚀 RBAC: Definição clara e à prova de falhas (tudo em minúsculo e sem espaços sobrando)
-  const isOwner = Boolean(currentUser?.is_admin);
-  const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
-  
-  const isManager = userJob === "gerente";
-  const isSecretary = userJob === "secretária" || userJob === "secretaria";
+  const isCliente = role === "cliente";
 
-  // 🔐 Regras de Negócio (O que cada um vê)
-  const canSeeFinanceiro = isOwner; 
-  const canSeeEquipe = isOwner || isManager;
-  const canSeeConfiguracoes = isOwner || isManager;
-  const canSeeProdutos = isOwner || isManager || isSecretary;
+  // Formatação limpa do cargo/papel
+  const displayJob = isBarbeiro ? (currentUser?.job_title || "Barbeiro") : "Cliente Elite";
 
-  // Variável para exibir o cargo original formatado no menu
-  const displayJob = currentUser?.job_title || "Barbeiro";
+  // 🚀 TIER-1: Extrator de Iniciais de Alta Performance
+  const displayInitials = useMemo(() => {
+    if (!currentUser?.name) return "U";
+    const tokens = currentUser.name.trim().split(/\s+/);
+    if (tokens.length === 0) return "U";
+    if (tokens.length === 1) return (tokens[0][0] || "U").toUpperCase();
+    
+    const firstInitial = tokens[0][0] || "";
+    const lastInitial = tokens[tokens.length - 1][0] || "";
+    
+    return `${firstInitial}${lastInitial}`.toUpperCase();
+  }, [currentUser?.name]);
 
   const getFirstName = (fullName: string | undefined) => {
     if (!fullName) return "Usuário";
@@ -41,71 +45,69 @@ export function DesktopNav() {
 
   return (
     <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur-lg">
-      <div className="container flex items-center justify-between h-16">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-amber flex items-center justify-center">
+      <div className="container max-w-7xl mx-auto flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+        
+        {/* LOGO */}
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
             <Scissors className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="font-bold text-lg tracking-tight">BarberPro</span>
+          <span className="font-black text-lg tracking-tighter uppercase italic">
+            Barber<span className="text-primary">Pro</span>
+          </span>
         </div>
 
+        {/* NAVEGAÇÃO CENTRAL (Foco total no Cliente) */}
         <div className="flex items-center gap-1">
           <NavLink
-            to="/agendar"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
-            activeClassName="bg-secondary text-foreground"
+            to="/descobrir"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+            activeClassName="bg-secondary text-foreground font-bold"
           >
-            <Scissors className="h-4 w-4" />
-            <span className="text-sm font-medium">Agendar</span>
+            <Compass className="h-4 w-4" />
+            <span className="text-sm font-medium">Explorar</span>
           </NavLink>
 
-          {isBarbeiro && (
+          {isCliente && (
             <>
-              <NavLink to="/dashboard" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                <LayoutDashboard className="h-4 w-4" />
-                <span className="text-sm font-medium">Dashboard</span>
-              </NavLink>
-              
-              <NavLink to="/agendamentos" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
+              <NavLink
+                to="/meus-agendamentos"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+                activeClassName="bg-secondary text-foreground font-bold"
+              >
                 <Calendar className="h-4 w-4" />
-                <span className="text-sm font-medium">Agendamentos</span>
+                <span className="text-sm font-medium">Minha Agenda</span>
               </NavLink>
 
-              {canSeeProdutos && (
-                <NavLink to="/produtos" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                  <Package className="h-4 w-4" />
-                  <span className="text-sm font-medium">Produtos</span>
-                </NavLink>
-              )}
-
-              {canSeeFinanceiro && (
-                <NavLink to="/financeiro" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                  <Wallet className="h-4 w-4" />
-                  <span className="text-sm font-medium">Financeiro</span>
-                </NavLink>
-              )}
-
-              {canSeeEquipe && (
-                <NavLink to="/equipe" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                  <Users className="h-4 w-4" />
-                  <span className="text-sm font-medium">Equipe</span>
-                </NavLink>
-              )}
-
-              {canSeeConfiguracoes && (
-                <NavLink to="/dashboard/configuracoes" className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary" activeClassName="bg-secondary text-foreground">
-                  <Settings className="h-4 w-4" />
-                  <span className="text-sm font-medium">Configurações</span>
-                </NavLink>
-              )}
+              <NavLink
+                to="/favoritos"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+                activeClassName="bg-secondary text-foreground font-bold"
+              >
+                <Heart className="h-4 w-4" />
+                <span className="text-sm font-medium">Favoritos</span>
+              </NavLink>
             </>
+          )}
+
+          {/* 🚀 Ponte B2B: Se for barbeiro navegando no app do cliente, permite voltar ao Painel */}
+          {isBarbeiro && (
+            <NavLink
+              to="/dashboard"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-primary/70 transition-all hover:bg-primary/10 hover:text-primary"
+              activeClassName="bg-primary/10 text-primary font-bold"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="text-sm font-medium">Painel B2B</span>
+            </NavLink>
           )}
 
           <div className="w-[1px] h-6 bg-border mx-2" />
 
+          {/* ÁREA DO USUÁRIO */}
           {!isAuthenticated ? (
             <NavLink
-              to="/cadastro"
+              to="/login-cliente"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground transition-all hover:bg-secondary"
               activeClassName="bg-secondary text-foreground"
             >
@@ -118,40 +120,38 @@ export function DesktopNav() {
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-2 py-1.5 pr-3 hover:bg-secondary/70 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="flex items-center gap-2 rounded-xl border border-border bg-secondary/40 px-2 py-1.5 pr-3 hover:bg-secondary/70 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary group"
                   >
-                    <Avatar className="h-9 w-9 border border-border">
-                      <AvatarFallback className="bg-primary/15 text-primary text-sm font-bold">
-                        {(currentUser?.name || "U")
-                          .split(/\s+/)
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
+                    <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold tracking-wider">
+                        {displayInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="hidden sm:flex flex-col text-left">
                       <span className="text-sm font-bold text-foreground leading-none max-w-[140px] truncate">
                         {getFirstName(currentUser?.name)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
+                      <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1 group-hover:text-primary/70 transition-colors">
                         {displayJob}
                       </span>
                     </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block group-hover:text-foreground transition-colors" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
+                
+                <DropdownMenuContent align="end" className="w-52 rounded-xl border-white/10 bg-[#0a0c12]/95 backdrop-blur-xl">
                   <DropdownMenuItem
                     onClick={() => navigate(isBarbeiro ? "/perfil/barbeiro" : "/perfil/cliente")}
-                    className="cursor-pointer"
+                    className="cursor-pointer font-medium hover:bg-white/5 focus:bg-white/5"
                   >
-                    <User className="h-4 w-4 mr-2" /> Meu perfil
+                    <User className="h-4 w-4 mr-2 text-muted-foreground" /> Meu perfil
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  
                   <DropdownMenuItem
                     onClick={() => { logout(); navigate("/"); }}
-                    className="cursor-pointer text-destructive focus:text-destructive"
+                    className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 font-bold"
                   >
                     <LogOut className="h-4 w-4 mr-2" /> Sair
                   </DropdownMenuItem>

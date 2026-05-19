@@ -10,14 +10,15 @@ async function parseJson<T>(res: Response): Promise<T & ApiErrorBody> {
   }
 }
 
-// 🚀 A TIPAGEM AGORA CONHECE A PROMOÇÃO!
+// 🚀 TIER-1: Tipagem atualizada para reconhecer a "description"
 export type MasterService = {
   id: string;
   name: string;
+  description?: string | null; // 👈 O Elo Perdido! Agora o front-end enxerga a descrição.
   price: number;
   duration_min: number;
-  promo_percentage?: number; // Liberado para passar
-  promo_days?: number[];     // Liberado para passar
+  promo_percentage?: number;
+  promo_days?: number[];
 };
 
 async function authHeader(): Promise<{ Authorization: string } | null> {
@@ -38,9 +39,10 @@ export async function listMasterServices(): Promise<{ services: MasterService[];
   return { services: data.services ?? [] };
 }
 
-// 🚀 O INPUT DE CRIAÇÃO AGORA ACEITA A PROMOÇÃO!
+// 🚀 TIER-1: Input agora trafega a description para a API
 export async function createMasterServiceClient(input: {
   name: string;
+  description?: string; // 👈 Liberado para passar na criação
   price: number;
   duration_min: number;
   promo_percentage?: number;
@@ -59,7 +61,7 @@ export async function createMasterServiceClient(input: {
   return { service: data.service };
 }
 
-// 🚀 COMO O TIPO DE INPUT É 'MasterService', O UPDATE AGORA TAMBÉM ENVIA OS DESCONTOS
+// 🚀 COMO O TIPO DE INPUT É 'MasterService', O UPDATE JÁ LEVA A DESCRIÇÃO JUNTO AUTOMATICAMENTE
 export async function updateMasterServiceClient(input: MasterService): Promise<{ error?: string }> {
   const headers = await authHeader();
   if (!headers) return { error: "Faça login novamente." };

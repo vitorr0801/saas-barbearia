@@ -8,15 +8,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
+// 🚀 ARQUITETURA TIER-1: Importação Absoluta do Layout Administrativo
+import { BarberLayout } from "@/components/layout/BarberLayout";
+
 /**
- * 🚀 OTIMIZAÇÃO TIER-1: LAZY LOADING
+ * 🚀 OTIMIZAÇÃO TIER-1: LAZY LOADING (Resolução de Módulos Absoluta com Path Aliasing)
  */
-const Landing = lazy(() => import("./pages/Landing"));
-const ClientPortal = lazy(() => import("./pages/ClientPortal"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Agenda = lazy(() => import("./pages/Agenda"));
-const Financial = lazy(() => import("./pages/Financial"));
-const Products = lazy(() => import("./pages/Products"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const ClientPortal = lazy(() => import("@/pages/ClientPortal"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Agenda = lazy(() => import("@/pages/Agenda"));
+const Financial = lazy(() => import("@/pages/Financial"));
+const Products = lazy(() => import("@/pages/Products"));
+const Servicos = lazy(() => import("@/pages/Servicos")); 
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Workstation = lazy(() => import("./pages/Workstation"));
 const ClientProfile = lazy(() => import("./pages/ClientProfile"));
@@ -30,15 +34,16 @@ const Team = lazy(() => import("./pages/Team"));
 const Index = lazy(() => import("./pages/Index"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const BookingSuccess = lazy(() => import("./pages/BookingSuccess"));
-
 const SignupCliente = lazy(() => import("./pages/auth/SignupCliente"));
 const SignupBarbeiro = lazy(() => import("./pages/auth/SignupBarbeiro"));
 const WelcomeBarber = lazy(() => import("./pages/auth/WelcomeBarber")); 
 const AuthCallback = lazy(() => import("./pages/AuthCallback")); 
 const AuthCallbackBarbeiro = lazy(() => import("./pages/AuthCallbackBarbeiro"));
-
+// 🚀 TIER-1: Novas Páginas de Compliance Legal (Obrigatórias para Gateway de Pagamento)
+const Privacidade = lazy(() => import("./pages/legal/Privacidade"));
+const TermosUso = lazy(() => import("./pages/legal/Termos"));
+const FAQ = lazy(() => import("./pages/legal/FAQ"));
 const queryClient = new QueryClient();
-
 const LoadingScreen = ({ message = "Sincronizando..." }: { message?: string }) => (
   <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0a0c12]">
     <div className="relative w-12 h-12">
@@ -70,7 +75,7 @@ function ProtectedRoute({
 
   // 1. Verificação de Autenticação
   if (!isAuthenticated) {
-    const isBarberRoute = ["dashboard", "onboarding", "financeiro", "equipe", "produtos", "agendamentos"].some(
+    const isBarberRoute = ["dashboard", "onboarding", "financeiro", "equipe", "produtos", "servicos", "agendamentos"].some(
       path => location.pathname.includes(path)
     );
     const loginTarget = isBarberRoute ? "/login-barbeiro" : "/login-cliente";
@@ -138,38 +143,51 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           
+          {/* --- ROTAS DE AUTENTICAÇÃO E PÚBLICAS --- */}
           <Route path="/login-cliente" element={<SignupCliente />} />
           <Route path="/login-barbeiro" element={<SignupBarbeiro />} />
           <Route path="/convite-aceito" element={<WelcomeBarber />} />
-          
           <Route path="/cadastro" element={<Navigate to="/login-cliente" replace />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/atualizar-senha" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/auth/callback-barbeiro" element={<AuthCallbackBarbeiro />} />
-          <Route path="/descobrir" element={<ClientPortal />} />
-          <Route path="/agendar" element={<Index />} />
           
-          {/* --- ECOSSISTEMA PARCEIRO COM RBAC --- */}
-          <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Dashboard /></ProtectedRoute>} />
-          <Route path="/agendamentos" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Agenda /></ProtectedRoute>} />
-          
-          {/* Rotas Restritas */}
-          <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="finance"><Financial /></ProtectedRoute>} />
-          <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="team"><Team /></ProtectedRoute>} />
-          <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="settings"><BarbershopSettings /></ProtectedRoute>} />
-          <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="products"><Products /></ProtectedRoute>} />
-          
-          <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
-          <Route path="/bancada" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Workstation /></ProtectedRoute>} />
-          <Route path="/perfil/barbeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]}><BarberProfile /></ProtectedRoute>} />
+          {/* 🚀 TIER-1: Compliance Legal Aberto (Evita erros 404 no Footer) */}
+          <Route path="/privacidade" element={<Privacidade />} />
+          <Route path="/cookies" element={<Privacidade />} /> {/* Aponta para a mesma por enquanto */}
+          <Route path="/termos" element={<TermosUso />} />
+          <Route path="/faq" element={<FAQ />} />
 
           {/* --- ECOSSISTEMA CLIENTE --- */}
+          <Route path="/descobrir" element={<ClientPortal />} />
+          <Route path="/agendar" element={<Index />} />
           <Route path="/meus-agendamentos" element={<ProtectedRoute allowedRoles={["cliente"]}><MyAppointments /></ProtectedRoute>} />
           <Route path="/perfil/cliente" element={<ProtectedRoute allowedRoles={["cliente"]}><ClientProfile /></ProtectedRoute>} />
           <Route path="/favoritos" element={<ProtectedRoute allowedRoles={["cliente", "barbeiro"]}><Favorites /></ProtectedRoute>} />
           <Route path="/checkout" element={<ProtectedRoute allowedRoles={["cliente"]}><Checkout /></ProtectedRoute>} />
           <Route path="/sucesso" element={<ProtectedRoute allowedRoles={["cliente"]}><BookingSuccess /></ProtectedRoute>} />
+          
+          {/* --- ECOSSISTEMA BARBEARIA (Telas Livres de Layout) --- */}
+          <Route path="/onboarding" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Onboarding /></ProtectedRoute>} />
+          <Route path="/bancada" element={<ProtectedRoute allowedRoles={["barbeiro"]}><Workstation /></ProtectedRoute>} />
+
+          {/* ======================================================================================= */}
+          {/* 🚀 WORKSPACE B2B COM SIDEBAR (Todas as rotas filhas herdam o BarberLayout)              */}
+          {/* ======================================================================================= */}
+          <Route element={<ProtectedRoute allowedRoles={["barbeiro"]}><BarberLayout /></ProtectedRoute>}>
+            
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/agendamentos" element={<Agenda />} />
+            <Route path="/servicos" element={<Servicos />} /> 
+            <Route path="/perfil/barbeiro" element={<BarberProfile />} />
+            
+            {/* Módulos com verificação interna dupla (Role + Permissão Específica) */}
+            <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="finance"><Financial /></ProtectedRoute>} />
+            <Route path="/equipe" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="team"><Team /></ProtectedRoute>} />
+            <Route path="/dashboard/configuracoes" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="settings"><BarbershopSettings /></ProtectedRoute>} />
+            <Route path="/produtos" element={<ProtectedRoute allowedRoles={["barbeiro"]} requiredModule="products"><Products /></ProtectedRoute>} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Routes>

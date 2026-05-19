@@ -13,7 +13,12 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
-export function Header() {
+// 🚀 TIER-1: Tipagem Estrita do Componente (Contrato de Segurança)
+interface HeaderProps {
+  hideSearch?: boolean; // O '?' significa que é opcional, não quebra as outras telas
+}
+
+export function Header({ hideSearch = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -143,7 +148,7 @@ export function Header() {
                   </a>
                 ))}
               </div>
-            ) : (
+            ) : !hideSearch && ( // 🚀 AQUI ACONTECE A MÁGICA: Só renderiza se hideSearch for falso
               <div className="w-full max-w-md relative group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
                 <input 

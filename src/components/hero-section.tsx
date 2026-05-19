@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useCallback, useMemo } from "react"
-import { Calendar, MessageCircle, TrendingUp, ArrowRight, Scissors, LayoutDashboard, ShieldCheck } from "lucide-react"
+import { Calendar, MessageCircle, TrendingUp, ArrowRight, Scissors, LayoutDashboard, Star } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
@@ -20,25 +20,21 @@ export const HeroSection = React.memo(() => {
   }, [navigate])
 
   /**
-   * 🔀 ESTRATÉGIA DE CONVERSÃO UNIFICADA (GUEST MODE)
-   * 100% alinhada com as portas blindadas do App.tsx
+   * 🔀 ESTRATÉGIA DE CONVERSÃO UNIFICADA (TIER-1)
+   * Foco absoluto em B2B (Venda do Software) com via secundária limpa para B2C
    */
   const ctaContent = useMemo(() => {
     if (!isAuthenticated) {
       return {
         primary: {
-          label: "SOU BARBEIRO: GESTÃO DE ELITE",
-          desc: "Quero profissionalizar meu negócio hoje",
-          // 🚀 CORREÇÃO MESTRA: Rota direta para a porta do barbeiro
+          label: "CRIAR CONTA DA BARBEARIA",
           path: "/login-barbeiro", 
           icon: <TrendingUp className="w-5 h-5" />
         },
         secondary: {
-          label: "SOU CLIENTE: AGENDAR CORTE",
-          desc: "Explorar barbearias e estilos agora",
-          // Clientes podem ir para /descobrir e o sistema pedirá login na hora de agendar
+          label: "SOU CLIENTE (AGENDAR)",
           path: "/descobrir",
-          icon: <Calendar className="w-5 h-5" />
+          icon: <Calendar className="w-4 h-4" />
         }
       }
     }
@@ -46,16 +42,14 @@ export const HeroSection = React.memo(() => {
     if (role === "barbeiro") {
       return {
         primary: {
-          label: "ACESSAR MEU DASHBOARD",
-          desc: "Ver faturamento e métricas de lucro",
+          label: "ACESSAR MEU PAINEL",
           path: "/dashboard",
           icon: <LayoutDashboard className="w-5 h-5" />
         },
         secondary: {
           label: "GERENCIAR AGENDA",
-          desc: "Ver próximos clientes e horários",
           path: "/agendamentos",
-          icon: <Calendar className="w-5 h-5" />
+          icon: <Calendar className="w-4 h-4" />
         }
       }
     }
@@ -64,15 +58,13 @@ export const HeroSection = React.memo(() => {
     return {
       primary: {
         label: "AGENDAR NOVO SERVIÇO",
-        desc: "Encontrar minha barbearia favorita",
         path: "/descobrir",
         icon: <Scissors className="w-5 h-5" />
       },
       secondary: {
         label: "MEUS AGENDAMENTOS",
-        desc: "Ver e gerenciar horários marcados",
         path: "/meus-agendamentos",
-        icon: <Calendar className="w-5 h-5" />
+        icon: <Calendar className="w-4 h-4" />
       }
     }
   }, [isAuthenticated, role])
@@ -89,73 +81,67 @@ export const HeroSection = React.memo(() => {
         }}
       />
 
-      <div className="relative z-10 max-w-6xl mx-auto text-center">
+      <div className="relative z-10 max-w-5xl mx-auto text-center mt-10">
         <div
           className={cn(
             "transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]",
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
           )}
         >
-          {/* Badge Dinâmica de Status */}
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-secondary/50 border border-border/50 mb-10 backdrop-blur-md shadow-inner">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
+          {/* 🚀 TIER-1: Prova Social Substituindo o "Antivírus" */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/30 border border-primary/20 mb-8 backdrop-blur-md shadow-sm">
+            <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+            <span className="text-[9px] font-black text-foreground uppercase tracking-[0.2em]">
               {isAuthenticated 
-                ? `OPERANDO EM MODO ELITE: ${currentUser?.name?.split(' ')[0]}` 
-                : "BARBERPRO SECURITY PROTOCOL V3.0"}
+                ? `BEM-VINDO DE VOLTA, ${currentUser?.name?.split(' ')[0]}` 
+                : "O SISTEMA DE GESTÃO Nº 1 PARA BARBEARIAS"}
             </span>
           </div>
 
-          {/* Headline com Tipografia de Impacto */}
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black italic uppercase tracking-tighter mb-8 text-balance leading-[0.85] text-foreground">
-            LUCRO <span className="text-primary">AFIADO</span>,<br />
-            GESTÃO <span className="text-primary">PRECISA.</span>
+          {/* 🚀 TIER-1: Headline Focada em Dor e Desejo (B2B) */}
+          <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-black italic uppercase tracking-tighter mb-6 text-balance leading-[0.9] text-foreground">
+            AGENDA <span className="text-primary">LOTADA</span>,<br />
+            LUCRO <span className="text-primary">NO BOLSO.</span>
           </h1>
 
-          {/* Subheadline Reativa ao Papel do Usuário */}
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed font-medium uppercase tracking-tight">
-            {role === 'barbeiro' 
-              ? "Assuma o controle total da sua bancada. Acompanhe seu crescimento real e gerencie sua equipe com a melhor tecnologia do mercado."
-              : "Estilo de elite ao alcance de um toque. Agende seu horário, receba lembretes automáticos e nunca mais perca seu barbeiro favorito."}
+          {/* 🚀 TIER-1: Subheadline Clara e Direta */}
+          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium uppercase tracking-widest opacity-80">
+            {role === 'cliente' 
+              ? "Estilo de elite ao alcance de um toque. Encontre sua barbearia favorita e agende em segundos."
+              : "A plataforma definitiva para donos de barbearia. Automatize agendamentos, reduza faltas e gerencie sua equipe com tecnologia de ponta."}
           </p>
 
-          {/* 🔀 CTAs Adaptativos (Otimizados para Conversão) */}
-          <div className="flex flex-col md:flex-row items-stretch justify-center gap-6 mb-24 max-w-4xl mx-auto">
-            {/* Botão Primário */}
+          {/* 🔀 Hierarquia de Botões (Otimizados para Conversão) */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20 max-w-2xl mx-auto">
+            {/* Botão Primário (Venda SaaS) */}
             <button 
               onClick={() => handleNavigation(ctaContent.primary.path)}
-              className="group relative flex flex-col items-center gap-1 px-10 py-6 bg-primary text-primary-foreground rounded-3xl transition-all hover:scale-[1.03] hover:shadow-[0_20px_50px_rgba(245,158,11,0.3)] active:scale-[0.98]"
+              className="group w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-black text-sm lg:text-base italic uppercase tracking-widest transition-all hover:scale-[1.03] hover:shadow-[0_15px_40px_rgba(245,158,11,0.3)] active:scale-[0.98]"
             >
-              <div className="flex items-center gap-3 font-black text-2xl italic uppercase tracking-tighter">
-                {ctaContent.primary.icon}
-                {ctaContent.primary.label}
-                <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-              </div>
-              <span className="text-[10px] opacity-70 font-black uppercase tracking-widest">{ctaContent.primary.desc}</span>
+              {ctaContent.primary.icon}
+              {ctaContent.primary.label}
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
             </button>
 
-            {/* Botão Secundário */}
+            {/* Botão Secundário (Fantasma / B2C) */}
             <button 
               onClick={() => handleNavigation(ctaContent.secondary.path)}
-              className="group flex flex-col items-center gap-1 px-10 py-6 bg-card border border-border rounded-3xl transition-all hover:bg-secondary hover:border-primary/40 active:scale-[0.98] shadow-sm"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-transparent border-2 border-border text-muted-foreground hover:text-foreground rounded-2xl font-bold text-xs uppercase tracking-widest transition-all hover:border-primary/50 hover:bg-secondary/20 active:scale-[0.98]"
             >
-              <div className="flex items-center gap-3 font-black text-2xl italic uppercase tracking-tighter text-foreground">
-                {ctaContent.secondary.icon}
-                {ctaContent.secondary.label}
-              </div>
-              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{ctaContent.secondary.desc}</span>
+              {ctaContent.secondary.icon}
+              {ctaContent.secondary.label}
             </button>
           </div>
 
-          {/* Seção de Badges de Confiança */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto opacity-80">
+          {/* Seção de Badges de Confiança (Benefícios) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto opacity-80">
             {[
-              { icon: MessageCircle, text: "Notificações Via WhatsApp" },
-              { icon: Calendar, text: "Agenda Inteligente 24/7" },
-              { icon: TrendingUp, text: "Métricas de Crescimento" }
+              { icon: Calendar, text: "Agenda 24/7" },
+              { icon: MessageCircle, text: "Lembretes Automáticos" },
+              { icon: TrendingUp, text: "Métricas de Receita" }
             ].map((feature, i) => (
-              <div key={i} className="flex items-center justify-center gap-4 p-4 rounded-2xl bg-secondary/20 border border-border/40 backdrop-blur-sm transition-all hover:bg-secondary/30">
-                <feature.icon className="w-5 h-5 text-primary" />
+              <div key={i} className="flex items-center justify-center gap-3 p-3.5 rounded-2xl bg-secondary/10 border border-white/5 backdrop-blur-sm transition-all hover:bg-secondary/20">
+                <feature.icon className="w-4 h-4 text-primary" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{feature.text}</span>
               </div>
             ))}

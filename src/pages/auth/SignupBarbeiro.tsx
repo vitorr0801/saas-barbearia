@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 // --- HELPERS ---
 function formatWhatsApp(value: string) {
@@ -90,7 +91,7 @@ export default function SignupBarbeiro() {
   // 🛡️ GUARDIÃO DE ROTA BLINDADO
   useEffect(() => {
     if (isAuthenticated && currentUser) {
-      if (isInviteFlow) return; // Garante que a pessoa fique na tela para colocar a senha
+      if (isInviteFlow) return;
 
       if (currentUser.role === 'cliente') {
         toast.error("Conta de cliente detectada. Você não tem acesso a esta área.");
@@ -104,7 +105,6 @@ export default function SignupBarbeiro() {
     }
   }, [isAuthenticated, currentUser, navigate, logout, isInviteFlow]);
 
-  // ✅ FUNÇÃO RESTAURADA
   const handleGoogleAuth = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -130,7 +130,6 @@ export default function SignupBarbeiro() {
     }
   };
 
-  // ✅ FUNÇÃO RESTAURADA
   const handleLoginSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -167,7 +166,7 @@ export default function SignupBarbeiro() {
   const handleSignupSubmit = async () => {
     if (isSubmitting) return;
 
-    if (!name.trim() || !whatsapp || !password || !email.trim()) {
+    if (!name.trim() || !password || !email.trim()) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -179,7 +178,7 @@ export default function SignupBarbeiro() {
 
     setIsSubmitting(true);
     const toastId = toast.loading(isInviteFlow ? "Validando acesso na equipe..." : "Criando sua conta...");
-    const whatsappDigits = whatsapp.replace(/\D/g, "");
+    const whatsappDigits = whatsapp ? whatsapp.replace(/\D/g, "") : null;
 
     try {
       if (isInviteFlow) {
@@ -247,20 +246,35 @@ export default function SignupBarbeiro() {
 
   return (
     <div className="min-h-screen bg-[#0a0c12] flex flex-col items-center justify-center p-6">
+      
       <div className="absolute top-8 left-8">
-        <button onClick={() => navigate("/")} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-all group">
-          <ArrowLeft className="h-5 w-5" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Início</span>
+        {/* 🚀 TIER-1 FIX: Botão Voltar Inteligente e Contextual */}
+        <button 
+          onClick={() => {
+            if (authMode === "signup" && !isInviteFlow) {
+              setAuthMode("login");
+              setPassword("");
+              setLoginPassword("");
+            } else {
+              navigate("/");
+            }
+          }} 
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-all group"
+        >
+          <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-[10px] font-black uppercase tracking-widest">
+            {authMode === "signup" && !isInviteFlow ? "Voltar" : "Início"}
+          </span>
         </button>
       </div>
 
       <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto border border-primary/20">
+          <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto border border-primary/20 shadow-sm">
             {isInviteFlow ? <UserPlus className="h-8 w-8 text-primary" /> : <Briefcase className="h-8 w-8 text-primary" />}
           </div>
           <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white">
-            {isInviteFlow ? "Colaborador" : "Portal Parceiro"}
+            {isInviteFlow ? "Colaborador" : (authMode === "login" ? "Entrar no Portal" : "Portal Parceiro")}
           </h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.3em]">
             {isInviteFlow ? "Crie sua conta na equipe" : "Gestão Profissional BarberPro"}
@@ -270,7 +284,7 @@ export default function SignupBarbeiro() {
         {step === 1 ? (
           <div className="bg-[#11141d] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
             
-            <Button onClick={handleGoogleAuth} disabled={isSubmitting} variant="outline" className="w-full h-14 rounded-2xl font-bold border-white/10 hover:bg-white/5 flex items-center justify-center gap-3">
+            <Button onClick={handleGoogleAuth} disabled={isSubmitting} variant="outline" className="w-full h-14 rounded-2xl font-bold border-white/10 hover:bg-white/5 flex items-center justify-center gap-3 transition-all">
               <GoogleIcon />
               <span className="text-sm">Continuar com Google</span>
             </Button>
@@ -278,53 +292,105 @@ export default function SignupBarbeiro() {
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/5" /></div>
               <div className="relative flex justify-center text-[9px] font-black uppercase tracking-widest">
-                <span className="bg-[#11141d] px-4 text-muted-foreground">Ou credenciais</span>
+                <span className="bg-[#11141d] px-4 text-muted-foreground">
+                  {authMode === "login" ? "Ou e-mail" : "Ou credenciais"}
+                </span>
               </div>
             </div>
 
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               {authMode === "signup" && (
                 <>
-                  <Input placeholder="Seu Nome Completo" value={name} onChange={(e) => setName(e.target.value)} className="h-12 rounded-xl bg-white/5 border-none" />
-                  <Input placeholder="WhatsApp Pessoal" value={whatsapp} onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))} className="h-12 rounded-xl bg-white/5 border-none" />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground pl-1">
+                      Seu Nome Completo <span className="text-red-500">*</span>
+                    </label>
+                    <Input 
+                      type="text"
+                      placeholder="Ex: João Silva" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      maxLength={100}
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      required
+                      className="h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40 focus-visible:ring-primary" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground pl-1 flex justify-between">
+                      <span>WhatsApp Pessoal</span>
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Opcional</span>
+                    </label>
+                    <Input 
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="(00) 00000-0000" 
+                      value={whatsapp} 
+                      onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))} 
+                      maxLength={15}
+                      autoComplete="tel"
+                      className="h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40" 
+                    />
+                  </div>
                 </>
               )}
               
-              <Input 
-                placeholder="E-mail profissional" 
-                value={authMode === "login" ? loginIdentifier : email} 
-                onChange={(e) => authMode === "login" ? setLoginIdentifier(e.target.value) : setEmail(e.target.value)} 
-                disabled={isInviteFlow && authMode === "signup" && email.length > 0}
-                className={`h-12 rounded-xl bg-white/5 border-none ${isInviteFlow && authMode === "signup" && email.length > 0 ? "opacity-50 cursor-not-allowed text-muted-foreground" : ""}`}
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground pl-1">
+                  E-mail profissional {authMode === "signup" && <span className="text-red-500">*</span>}
+                </label>
+                <Input 
+                  type="email"
+                  inputMode="email"
+                  placeholder="contato@exemplo.com" 
+                  value={authMode === "login" ? loginIdentifier : email} 
+                  onChange={(e) => authMode === "login" ? setLoginIdentifier(e.target.value) : setEmail(e.target.value)} 
+                  disabled={isInviteFlow && authMode === "signup" && email.length > 0}
+                  maxLength={255}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete={authMode === "login" ? "username" : "email"}
+                  required
+                  className={cn(
+                    "h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40",
+                    isInviteFlow && authMode === "signup" && email.length > 0 && "opacity-50 cursor-not-allowed text-muted-foreground"
+                  )}
+                />
+              </div>
               
-              <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground pl-1">
+                  {authMode === "login" ? "Senha de Acesso" : "Criar Senha"} {authMode === "signup" && <span className="text-red-500">*</span>}
+                </label>
                 <div className="relative">
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     maxLength={72} 
-                    placeholder="Senha segura" 
+                    placeholder="Sua senha segura" 
                     value={authMode === "login" ? loginPassword : password} 
                     onChange={(e) => authMode === "login" ? setLoginPassword(e.target.value) : setPassword(e.target.value)} 
-                    className="h-12 rounded-xl bg-white/5 border-none pr-12" 
+                    autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    required
+                    className="h-12 rounded-xl bg-white/5 border-none pr-12 placeholder:text-muted-foreground/40" 
                   />
-                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3 text-muted-foreground hover:text-white transition-colors">
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3 text-muted-foreground hover:text-white transition-colors" type="button">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
 
                 {authMode === "signup" && password.length > 0 && (
-                  <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1">
+                  <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1 mt-2">
                     <RequirementItem met={passwordReqs.length} text="Mínimo 8 caracteres" />
                     <RequirementItem met={passwordReqs.number} text="Pelo menos um número" />
                     <RequirementItem met={passwordReqs.special} text="Caractere especial (!@#$)" />
                   </div>
                 )}
               </div>
-
             </div>
 
-            <Button onClick={authMode === "login" ? handleLoginSubmit : handleSignupSubmit} disabled={isSubmitting} className="w-full h-14 rounded-2xl font-black uppercase italic shadow-lg shadow-primary/20">
+            <Button onClick={authMode === "login" ? handleLoginSubmit : handleSignupSubmit} disabled={isSubmitting} className="w-full h-14 rounded-2xl font-black uppercase italic shadow-lg shadow-primary/20 mt-4">
               {isSubmitting ? "Sincronizando..." : (authMode === "login" ? "Acessar Painel" : "Criar Conta Rápida")}
             </Button>
 
@@ -334,13 +400,13 @@ export default function SignupBarbeiro() {
                 setPassword(""); 
                 setLoginPassword("");
               }} className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                {authMode === "login" ? "Ainda não tenho conta" : "Já possuo uma conta"}
+                {authMode === "login" ? "Não tem conta? Criar agora" : "Já possuo uma conta"}
               </button>
             </div>
           </div>
         ) : (
           <div className="text-center p-8 bg-[#11141d] rounded-[2.5rem] border border-white/5">
-            <Mail className="w-16 h-16 text-primary mx-auto mb-6" />
+            <Mail className="w-16 h-16 text-primary mx-auto mb-6 animate-bounce" />
             <h2 className="text-xl font-black text-white uppercase italic">Conta criada!</h2>
             <p className="text-xs text-muted-foreground mt-4 mb-8">Abra sua caixa de entrada e clique no link de ativação para entrar na plataforma.</p>
             <Button onClick={() => setStep(1)} variant="outline" className="w-full rounded-xl border-white/10 hover:bg-white/5">Voltar ao Início</Button>

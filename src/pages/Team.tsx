@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { InviteForm } from "@/components/team/InviteForm";
 import { MemberCard, type TeamMemberExtended } from "@/components/team/MemberCard";
 import { BarberServicesModal } from "@/components/team/BarberServicesModal";
@@ -20,24 +19,29 @@ import {
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
 import { listTeamMembers, inviteBarberByEmail, removeBarberById } from "@/lib/team-client";
-import { Users, Loader2 } from "lucide-react";
+import { Users, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function Team() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const barbeariaId = currentUser?.barbearia_id;
 
+  // Modais de Controle
   const [servicesModal, setServicesModal] = useState<{ id: string; name: string } | null>(null);
   const [hoursModal, setHoursModal] = useState<{ id: string; name: string } | null>(null);
   
+  // Modais de Alerta (Ações Destrutivas ou Críticas)
   const [removeTarget, setRemoveTarget] = useState<TeamMemberExtended | null>(null);
-  // 🚀 ESTADO PARA O NOVO MODAL DE CONFIRMAÇÃO DA AGENDA
   const [agendaToggleTarget, setAgendaToggleTarget] = useState<{ id: string; name: string; current: boolean } | null>(null);
 
+  // 🚀 TIER-1: Query blindada e com cache inteligente
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["team-members", barbeariaId],
     queryFn: async (): Promise<TeamMemberExtended[]> => {
+      if (!barbeariaId) throw new Error("ID da barbearia não encontrado.");
+
       const { members: baseMembers, error } = await listTeamMembers();
       if (error) throw new Error(error);
       
@@ -78,6 +82,7 @@ export default function Team() {
       });
     },
     enabled: !!barbeariaId,
+    staleTime: 1000 * 60 * 5, // Cache de 5 minutos para evitar requisições repetidas ao trocar de abas
   });
 
   const inviteMutation = useMutation({
@@ -130,31 +135,49 @@ export default function Team() {
     onError: (err: any) => toast.error(err.message || "Falha ao remover.")
   });
 
+  if (!barbeariaId) {
+    return (
+      <div className="container max-w-7xl mx-auto py-12 flex flex-col items-center justify-center text-center">
+        <ShieldAlert className="w-12 h-12 text-destructive mb-4" />
+        <h2 className="text-xl font-black uppercase tracking-widest text-foreground">Acesso Restrito</h2>
+        <p className="text-muted-foreground mt-2 text-sm">Você precisa estar vinculado a uma barbearia para gerenciar a equipe.</p>
+      </div>
+    );
+  }
+
   return (
-    <AppLayout>
-      <div className="container max-w-5xl py-6 space-y-8">
-        <header className="space-y-1 animate-in fade-in slide-in-from-left-4 duration-500">
-          <div className="flex items-center gap-2 text-primary">
+    <div className="container max-w-7xl mx-auto space-y-8 overflow-x-hidden">
+      
+      {/* 🏁 EXECUTIVE HEADER */}
+      <header className="flex flex-col gap-6 animate-in fade-in duration-500">
+        <div>
+          <div className="flex items-center gap-2 text-primary mb-2">
             <Users className="h-5 w-5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Gestão Avançada</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Gestão Avançada</span>
           </div>
-          <h1 className="text-3xl font-black uppercase italic tracking-tight text-foreground">Minha Equipe</h1>
-          <p className="text-xs text-muted-foreground mt-1 font-medium">
+          <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-foreground">
+            Minha <span className="text-primary">Equipe</span>
+          </h1>
+          <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1">
             Gerencie cargos, agendas e permissões da sua barbearia.
           </p>
-        </header>
+        </div>
+      </header>
 
+      <div className="max-w-5xl space-y-8">
         <InviteForm 
           onInvite={(email, job, provides) => inviteMutation.mutateAsync({ email, job, providesServices: provides })}
           isLoading={inviteMutation.isPending}
         />
 
-        <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+        <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
           <h2 className="text-sm font-black uppercase tracking-widest text-foreground">Colaboradores ({members.length})</h2>
           {isLoading ? (
             <div className="py-20 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary/50" /></div>
           ) : members.length === 0 ? (
-            <div className="dash-card py-10 text-center text-sm text-muted-foreground">Nenhum colaborador vinculado ainda.</div>
+            <div className="dash-card py-10 text-center text-sm font-medium text-muted-foreground border border-dashed border-border/50 rounded-3xl bg-secondary/20">
+              Nenhum colaborador vinculado ainda. Use o formulário acima para convidar o seu primeiro profissional.
+            </div>
           ) : (
             <ul className="grid gap-3">
               {members.map(m => (
@@ -162,7 +185,6 @@ export default function Team() {
                   key={m.id} 
                   member={m} 
                   isSelf={m.id === currentUser?.id}
-                  // 🚀 AGORA ELE ABRE O MODAL AO INVÉS DE ALTERAR DIRETO
                   onToggleAgenda={(id, current) => setAgendaToggleTarget({ id, name: m.name || m.email, current })}
                   onUpdateCommission={(id, rate) => updateCommissionMutation.mutate({ id, rate })}
                   onRemove={setRemoveTarget}
@@ -175,6 +197,7 @@ export default function Team() {
         </section>
       </div>
 
+      {/* MODAIS DE GESTÃO DO BARBEIRO */}
       <BarberServicesModal 
         open={!!servicesModal} 
         onOpenChange={() => setServicesModal(null)}
@@ -192,48 +215,51 @@ export default function Team() {
 
       {/* MODAL DE REMOÇÃO DE MEMBRO */}
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
-        <AlertDialogContent className="rounded-2xl border-border bg-card">
+        <AlertDialogContent className="rounded-2xl border-border bg-[#0a0c12] shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover da equipe?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{removeTarget?.name || removeTarget?.email}</strong>? O acesso ao sistema será revogado.
+            <AlertDialogTitle className="font-black italic uppercase tracking-tight text-xl text-foreground">Remover da equipe?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Tem certeza que deseja remover <strong className="text-foreground">{removeTarget?.name || removeTarget?.email}</strong>? O acesso ao sistema será revogado imediatamente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removeMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={removeMutation.isPending} className="rounded-xl font-bold uppercase tracking-widest text-[10px] border-border/50">Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              className="bg-destructive hover:bg-destructive/90" 
+              className="bg-destructive hover:bg-destructive/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-destructive/20" 
               disabled={removeMutation.isPending}
               onClick={() => removeTarget && removeMutation.mutate(removeTarget.id)}
             >
-              {removeMutation.isPending ? "Removendo..." : "Remover"}
+              {removeMutation.isPending ? "Removendo..." : "Sim, Remover"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 🚀 NOVO MODAL DE ALTERAÇÃO DA AGENDA */}
+      {/* MODAL DE ALTERAÇÃO DA AGENDA */}
       <AlertDialog open={!!agendaToggleTarget} onOpenChange={(open) => !open && setAgendaToggleTarget(null)}>
-        <AlertDialogContent className="rounded-2xl border-border bg-card">
+        <AlertDialogContent className="rounded-2xl border-border bg-[#0a0c12] shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="font-black italic uppercase tracking-tight text-xl text-foreground">
               {agendaToggleTarget?.current ? "Pausar" : "Reativar"} agenda de {agendaToggleTarget?.name}?
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="text-muted-foreground">
               {agendaToggleTarget?.current 
                 ? "Ao desativar, este profissional ficará oculto no aplicativo e os clientes não poderão agendar novos horários com ele. Tem certeza que deseja continuar?"
                 : "Ao reativar, este profissional voltará a ficar visível no aplicativo e os clientes poderão agendar novos horários normalmente. Tem certeza que deseja continuar?"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={toggleAgendaMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={toggleAgendaMutation.isPending} className="rounded-xl font-bold uppercase tracking-widest text-[10px] border-border/50">Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              className={agendaToggleTarget?.current ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"} 
+              className={cn(
+                "rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg text-white", 
+                agendaToggleTarget?.current ? "bg-amber-600 hover:bg-amber-500 shadow-amber-900/20" : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/20"
+              )} 
               disabled={toggleAgendaMutation.isPending}
               onClick={() => {
                 if (agendaToggleTarget) {
                   toggleAgendaMutation.mutate({ id: agendaToggleTarget.id, current: agendaToggleTarget.current });
-                  setAgendaToggleTarget(null); // Fecha o modal imediatamente para UX mais rápida
+                  setAgendaToggleTarget(null);
                 }
               }}
             >
@@ -242,6 +268,6 @@ export default function Team() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppLayout>
+    </div>
   );
 }

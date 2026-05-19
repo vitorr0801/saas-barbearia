@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   User, 
   Mail, 
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 
 // --- HELPERS ---
 function formatWhatsApp(value: string) {
@@ -53,7 +54,6 @@ export default function SignupCliente() {
 
   const ROLE = "cliente";
 
-  // 🚀 TIER-1: Validador de Força de Senha
   const passwordReqs = {
     length: password.length >= 8,
     number: /\d/.test(password),
@@ -65,7 +65,6 @@ export default function SignupCliente() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      // 🚀 TIER-1: Limpa intenções anteriores e define a nova
       localStorage.setItem("barberpro_oauth_intent", JSON.stringify({ role: ROLE }));
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -102,7 +101,6 @@ export default function SignupCliente() {
           .eq("id", data.user.id)
           .single();
 
-        // 🛡️ LEÃO DE CHÁCARA: Se for barbeiro tentando entrar aqui, barramos e expulsamos
         if (profile?.role === "barbeiro") {
           await supabase.auth.signOut();
           toast.error("Acesso negado: Conta profissional.", { 
@@ -126,7 +124,7 @@ export default function SignupCliente() {
   const handleSignupSubmit = async () => {
     if (isSubmitting) return;
 
-    if (!name.trim() || !whatsapp || !password || !email.trim()) {
+    if (!name.trim() || !password || !email.trim()) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -138,7 +136,7 @@ export default function SignupCliente() {
 
     setIsSubmitting(true);
     const toastId = toast.loading("Criando seu perfil...");
-    const whatsappDigits = whatsapp.replace(/\D/g, "");
+    const whatsappDigits = whatsapp ? whatsapp.replace(/\D/g, "") : null;
 
     try {
       const { error, data } = await supabase.auth.signUp({
@@ -167,7 +165,6 @@ export default function SignupCliente() {
     }
   };
 
-  // Componente interno para renderizar as regrinhas
   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
     <div className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-colors duration-300 ${met ? "text-emerald-500" : "text-muted-foreground/50"}`}>
       {met ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
@@ -179,7 +176,19 @@ export default function SignupCliente() {
     <div className="min-h-screen bg-[#0a0c12] flex flex-col items-center justify-center p-6">
       
       <div className="absolute top-8 left-8">
-        <button onClick={() => navigate("/descobrir")} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-all group">
+        {/* 🚀 TIER-1 FIX: Botão Voltar Inteligente */}
+        <button 
+          onClick={() => {
+            if (authMode === "signup") {
+              setAuthMode("login");
+              setPassword("");
+              setLoginPassword("");
+            } else {
+              navigate("/descobrir");
+            }
+          }} 
+          className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-all group"
+        >
           <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-[0.2em]">Voltar</span>
         </button>
@@ -214,43 +223,92 @@ export default function SignupCliente() {
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/5" /></div>
               <div className="relative flex justify-center text-[9px] font-black uppercase tracking-widest">
-                <span className="bg-[#11141d] px-4 text-muted-foreground">Ou e-mail</span>
+                <span className="bg-[#11141d] px-4 text-muted-foreground">
+                  {authMode === "login" ? "Ou e-mail" : "Ou credenciais"}
+                </span>
               </div>
             </div>
 
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               {authMode === "signup" && (
                 <>
-                  <Input placeholder="Nome Completo" value={name} onChange={(e) => setName(e.target.value)} className="h-12 rounded-xl bg-white/5 border-none focus-visible:ring-primary" />
-                  <Input placeholder="WhatsApp" value={whatsapp} onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))} className="h-12 rounded-xl bg-white/5 border-none" />
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground pl-1">
+                      Nome Completo <span className="text-red-500">*</span>
+                    </label>
+                    <Input 
+                      type="text"
+                      placeholder="Ex: João Silva" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      maxLength={100}
+                      autoCapitalize="words"
+                      autoComplete="name"
+                      required
+                      className="h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40 focus-visible:ring-primary" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground pl-1 flex justify-between">
+                      <span>WhatsApp</span>
+                      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Opcional</span>
+                    </label>
+                    <Input 
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="(00) 00000-0000" 
+                      value={whatsapp} 
+                      onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))} 
+                      maxLength={15}
+                      autoComplete="tel"
+                      className="h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40" 
+                    />
+                  </div>
                 </>
               )}
               
-              <Input 
-                placeholder="Seu melhor e-mail" 
-                value={authMode === "login" ? loginIdentifier : email} 
-                onChange={(e) => authMode === "login" ? setLoginIdentifier(e.target.value) : setEmail(e.target.value)} 
-                className="h-12 rounded-xl bg-white/5 border-none" 
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground pl-1">
+                  Endereço de e-mail {authMode === "signup" && <span className="text-red-500">*</span>}
+                </label>
+                <Input 
+                  type="email"
+                  inputMode="email"
+                  placeholder="contato@exemplo.com" 
+                  value={authMode === "login" ? loginIdentifier : email} 
+                  onChange={(e) => authMode === "login" ? setLoginIdentifier(e.target.value) : setEmail(e.target.value)} 
+                  maxLength={255}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete={authMode === "login" ? "username" : "email"}
+                  required
+                  className="h-12 rounded-xl bg-white/5 border-none placeholder:text-muted-foreground/40" 
+                />
+              </div>
               
-              <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground pl-1">
+                  {authMode === "login" ? "Senha de Acesso" : "Criar Senha"} {authMode === "signup" && <span className="text-red-500">*</span>}
+                </label>
                 <div className="relative">
                   <Input 
                     type={showPassword ? "text" : "password"}
-                    maxLength={72} /* 🚀 TIER-1: Proteção silenciosa contra ataque DoS no bcrypt */
-                    placeholder="Sua senha secreta" 
+                    maxLength={72}
+                    placeholder="Sua senha segura" 
                     value={authMode === "login" ? loginPassword : password} 
                     onChange={(e) => authMode === "login" ? setLoginPassword(e.target.value) : setPassword(e.target.value)} 
-                    className="h-12 rounded-xl bg-white/5 border-none pr-12" 
+                    autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                    required
+                    className="h-12 rounded-xl bg-white/5 border-none pr-12 placeholder:text-muted-foreground/40" 
                   />
-                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-3 text-muted-foreground hover:text-primary transition-colors">
+                  <button onClick={() => setShowPassword(!showPassword)} type="button" className="absolute right-4 top-3 text-muted-foreground hover:text-primary transition-colors">
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
 
-                {/* 🚀 Indicador Inteligente: Só aparece no Cadastro */}
                 {authMode === "signup" && password.length > 0 && (
-                  <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1">
+                  <div className="bg-black/20 p-3 rounded-xl border border-white/5 space-y-2 animate-in fade-in slide-in-from-top-1 mt-2">
                     <RequirementItem met={passwordReqs.length} text="Mínimo 8 caracteres" />
                     <RequirementItem met={passwordReqs.number} text="Pelo menos um número" />
                     <RequirementItem met={passwordReqs.special} text="Caractere especial (!@#$)" />
@@ -262,7 +320,7 @@ export default function SignupCliente() {
             <Button 
               onClick={authMode === "login" ? handleLoginSubmit : handleSignupSubmit} 
               disabled={isSubmitting} 
-              className="w-full h-14 rounded-2xl font-black uppercase italic text-md shadow-lg shadow-primary/20"
+              className="w-full h-14 rounded-2xl font-black uppercase italic text-md shadow-lg shadow-primary/20 mt-4"
             >
               {isSubmitting ? "Processando..." : (authMode === "login" ? "Acessar" : "Cadastrar")}
             </Button>

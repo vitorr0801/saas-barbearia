@@ -14,9 +14,10 @@ export interface AuthUser {
   role: Role; 
   barbearia_id: string | null; 
   is_admin: boolean;
-  // 🚀 NOVAS PROPRIEDADES DO RBAC
-  job_title?: string;
-  provides_services?: boolean;
+
+  // 🚀 NOVAS PROPRIEDADES DO RBAC (Padrão Strict Supabase)
+  job_title?: string | null;
+  provides_services?: boolean | null;
 }
 
 interface AuthContextValue {

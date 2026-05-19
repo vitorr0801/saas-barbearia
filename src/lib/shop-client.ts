@@ -18,7 +18,7 @@ async function authHeader(): Promise<{ Authorization: string } | null> {
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
-// 🚀 TIER-1: Tipagem Completa expandida para suportar todos os dados da barbearia
+// 🚀 TIER-1: Tipagem Sincronizada com a nova estrutura do Banco de Dados
 export type BarbershopSettings = {
   id: string;
   name: string | null;
@@ -26,7 +26,7 @@ export type BarbershopSettings = {
   categories: string[] | null;
   cover_image: string | null;
   
-  // Novos dados de Endereço e Contato integrados
+  // Endereço Integrado
   zip_code?: string | null;
   street?: string | null;
   address_number?: string | null;
@@ -34,10 +34,10 @@ export type BarbershopSettings = {
   city?: string | null;
   state?: string | null;
   
-  // Redes Sociais e Coordenadas
+  // Redes Sociais e Contato
   instagram_url?: string | null;
-  phone?: string | null;
-  location?: any | null; 
+  whatsapp?: string | null; // 👈 CORREÇÃO: Alinhado com a coluna real do banco
+  location?: string | null; // Tipado como string para receber as coordenadas POINT()
 };
 
 export async function getMyShopSettings(): Promise<{ shop?: BarbershopSettings; error?: string }> {
@@ -50,7 +50,7 @@ export async function getMyShopSettings(): Promise<{ shop?: BarbershopSettings; 
   return { shop: data.shop };
 }
 
-// 🚀 TIER-1: Input atualizado para trafegar o Payload completo pro backend
+// 🚀 TIER-1: Input atualizado para trafegar o Payload correto pro backend
 export async function updateMyShopSettings(input: {
   name: string;
   neighborhood?: string;
@@ -63,7 +63,7 @@ export async function updateMyShopSettings(input: {
   city?: string;
   state?: string;
   instagram_url?: string;
-  phone?: string;
+  whatsapp?: string; // 👈 CORREÇÃO: Enviando o dado com o nome correto
   location?: string | null;
 }): Promise<{ error?: string }> {
   const headers = await authHeader();

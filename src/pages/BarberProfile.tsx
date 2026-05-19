@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft } from "lucide-react";
+import { UserCircle } from "lucide-react"; // 🚀 Injetado para o Header Executivo
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { BarberProfileHeader } from "@/components/profile/BarberProfileHeader";
 import { BarberBio } from "@/components/profile/BarberBio";
 import { BarberGallery } from "@/components/profile/BarberGallery";
 import { BarberSocialLinks } from "@/components/profile/BarberSocialLinks";
 import { ClientPersonalInfo } from "@/components/profile/ClientPersonalInfo";
 import { SaveBar } from "@/components/profile/SaveBar";
-import { AppLayout } from "@/components/layout/AppLayout";
+// 🗑️ IMPORT APAGADO: import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres."),
@@ -145,44 +145,55 @@ export default function BarberProfile() {
   };
 
   return (
-    <AppLayout>
-      <div className="min-h-[calc(100vh-4rem)] pb-24">
-        <div className="sticky top-0 z-40 flex items-center gap-3 border-b border-border bg-background/95 backdrop-blur-lg px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-foreground">Perfil Profissional</h1>
+    // 🚀 TAG <AppLayout> REMOVIDA PARA ENCAIXE NA SIDEBAR
+    <div className="container max-w-4xl mx-auto space-y-8 overflow-x-hidden pb-10">
+      
+      {/* 🏁 EXECUTIVE HEADER PADRÃO MUNDIAL */}
+      <header className="flex flex-col gap-6 animate-in fade-in duration-500">
+        <div>
+          <div className="flex items-center gap-2 text-primary mb-2">
+            <UserCircle className="h-5 w-5" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Meu Espaço</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-foreground">
+            Perfil <span className="text-primary">Profissional</span>
+          </h1>
+          <p className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1">
+            Gerencie seus dados, biografia e portfólio.
+          </p>
         </div>
+      </header>
 
-        <div className="mx-auto max-w-lg px-4 space-y-5 mt-1">
-          {profileLoading ? (
-            <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              Carregando dados do perfil...
-            </div>
-          ) : (
-            <>
-              <BarberProfileHeader
-                name={accountData.name || "Seu nome"}
-                rating={0}
-                reviewCount={0}
+      <div className="space-y-6">
+        {profileLoading ? (
+          <div className="rounded-[2rem] border border-border bg-card/30 backdrop-blur-xl p-12 text-center flex justify-center">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+            <BarberProfileHeader
+              name={accountData.name || "Seu nome"}
+              rating={0}
+              reviewCount={0}
+              isEditing={isEditing}
+              onToggleEdit={() => {
+                setIsEditing(!isEditing);
+                if (isEditing) setHasChanges(false);
+              }}
+            />
+
+            <div className="rounded-[2rem] border border-border/50 bg-card/30 backdrop-blur-xl p-6 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" /> Dados Cadastrais
+              </p>
+              <ClientPersonalInfo
                 isEditing={isEditing}
-                onToggleEdit={() => {
-                  setIsEditing(!isEditing);
-                  if (isEditing) setHasChanges(false);
-                }}
+                data={accountData}
+                onChange={handleAccountFieldChange}
               />
+            </div>
 
-              <div className="rounded-xl border border-border bg-card/40 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">
-                  Dados cadastrais
-                </p>
-                <ClientPersonalInfo
-                  isEditing={isEditing}
-                  data={accountData}
-                  onChange={handleAccountFieldChange}
-                />
-              </div>
-
+            <div className="rounded-[2rem] border border-border/50 bg-card/30 backdrop-blur-xl p-0 shadow-sm overflow-hidden">
               <BarberBio
                 isEditing={isEditing}
                 bio={bio}
@@ -190,9 +201,13 @@ export default function BarberProfile() {
                 onBioChange={(v) => { setBio(v); markChanged(); }}
                 onSpecialtiesChange={(v) => { setSpecialties(v); markChanged(); }}
               />
+            </div>
 
+            <div className="rounded-[2rem] border border-border/50 bg-card/30 backdrop-blur-xl p-0 shadow-sm overflow-hidden">
               <BarberGallery isEditing={isEditing} images={[]} />
-              
+            </div>
+            
+            <div className="rounded-[2rem] border border-border/50 bg-card/30 backdrop-blur-xl p-0 shadow-sm overflow-hidden">
               <BarberSocialLinks
                 isEditing={isEditing}
                 instagram={instagram}
@@ -200,12 +215,12 @@ export default function BarberProfile() {
                 onInstagramChange={(v) => { setInstagram(v); markChanged(); }}
                 onPortfolioChange={(v) => { setPortfolio(v); markChanged(); }}
               />
-            </>
-          )}
-        </div>
-
-        <SaveBar visible={isEditing && hasChanges} onSave={handleSave} isLoading={isSaving} />
+            </div>
+          </div>
+        )}
       </div>
-    </AppLayout>
+
+      <SaveBar visible={isEditing && hasChanges} onSave={handleSave} isLoading={isSaving} />
+    </div>
   );
 }

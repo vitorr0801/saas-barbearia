@@ -124,7 +124,7 @@ function servicesMiddleware(env: ServicesEnv) {
         city: typeof body.city === "string" ? body.city.trim() : null,
         state: typeof body.state === "string" ? body.state.trim() : null,
         instagram_url: typeof body.instagram_url === "string" ? body.instagram_url.trim() : null,
-        phone: typeof body.phone === "string" ? body.phone.trim() : null,
+        whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : null,
         location: body.location !== undefined ? body.location : null,
       });
 
@@ -153,10 +153,12 @@ function servicesMiddleware(env: ServicesEnv) {
 
       if (req.method === "POST" || req.method === "PUT") {
         const name = typeof body.name === "string" ? body.name.trim() : "";
+        // 🚀 TIER-1: Capturando e sanitizando a description (se vier vazia, vira null para salvar espaço no banco)
+        const description = typeof body.description === "string" && body.description.trim() !== "" ? body.description.trim() : null;
+        
         const price = typeof body.price === "number" ? body.price : Number(body.price);
         const durationMin = typeof body.duration_min === "number" ? body.duration_min : Number(body.duration_min);
         
-        // 🚀 CORRIGIDO: Coletando a promoção com precisão
         const promoPercentage = Number(body.promo_percentage) || 0;
         const promoDays = Array.isArray(body.promo_days) ? body.promo_days : [];
 
@@ -166,10 +168,11 @@ function servicesMiddleware(env: ServicesEnv) {
           const result = await createMasterService(env, {
             barbeariaId: who.barbeariaId,
             name,
+            description, // 🚀 Repassando para a camada lógica
             price,
             durationMin,
-            promoPercentage, // 🚀 Agora está enviando o nome certo!
-            promoDays,       // 🚀 Agora está enviando o nome certo!
+            promoPercentage, 
+            promoDays,       
           });
           if (!result.ok) return sendJson(res, 400, { error: result.message });
           return sendJson(res, 200, { service: result.service });
@@ -180,10 +183,11 @@ function servicesMiddleware(env: ServicesEnv) {
             barbeariaId: who.barbeariaId,
             serviceId,
             name,
+            description, // 🚀 Repassando para a camada lógica
             price,
             durationMin,
-            promoPercentage, // 🚀 Agora está enviando o nome certo!
-            promoDays,       // 🚀 Agora está enviando o nome certo!
+            promoPercentage, 
+            promoDays,       
           });
           if (!result.ok) return sendJson(res, 400, { error: result.message });
           return sendJson(res, 200, { ok: true });
@@ -201,6 +205,7 @@ function servicesMiddleware(env: ServicesEnv) {
       return sendJson(res, 405, { error: "Method not allowed" });
     }
 
+    // ... [restante inalterado]
     if (path === "/api/services/barber") {
       if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed" });
       if (who.role !== "barbeiro" || !who.barbeariaId) {
