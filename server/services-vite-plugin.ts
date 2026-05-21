@@ -126,6 +126,9 @@ function servicesMiddleware(env: ServicesEnv) {
         instagram_url: typeof body.instagram_url === "string" ? body.instagram_url.trim() : null,
         whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : null,
         location: body.location !== undefined ? body.location : null,
+        about: typeof body.about === "string" ? body.about.trim() || null : null,
+        working_hours: body.working_hours && typeof body.working_hours === "object" ? body.working_hours : null,
+        payment_methods: Array.isArray(body.payment_methods) ? body.payment_methods.filter((p: any) => typeof p === "string") : null,
       });
 
       if (!result.ok) return sendJson(res, 400, { error: result.message });

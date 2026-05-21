@@ -12,9 +12,7 @@ export type ServicesEnv = {
 
 function userClient(url: string, anonKey: string, accessToken: string): SupabaseClient {
   return createClient(url, anonKey, {
-    global: {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
 }
 
@@ -32,48 +30,37 @@ export async function verifyUserFromAccessToken(
   | { ok: false; message: string }
 > {
   const anon = createClient(env.supabaseUrl, env.supabaseAnonKey);
-  const {
-    data: { user },
-    error: authErr,
-  } = await anon.auth.getUser(accessToken);
-  
-  if (authErr || !user) {
-    return { ok: false, message: "Sessão inválida ou expirada." };
-  }
+  const { data: { user }, error: authErr } = await anon.auth.getUser(accessToken);
+  if (authErr || !user) return { ok: false, message: "Sessão inválida ou expirada." };
 
   const scoped = userClient(env.supabaseUrl, env.supabaseAnonKey, accessToken);
-  
   const { data: profile, error: profErr } = await scoped
     .from("profiles")
     .select("role, is_admin, barbearia_id, job_title")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profErr || !profile) {
-    return { ok: false, message: "Não foi possível validar seu perfil." };
-  }
+  if (profErr || !profile) return { ok: false, message: "Não foi possível validar seu perfil." };
 
   const userJob = (profile.job_title as string | null || "barbeiro").toLowerCase().trim();
-
   return {
     ok: true,
     userId: user.id,
     barbeariaId: (profile.barbearia_id as string | null) ?? null,
     isAdmin: Boolean(profile.is_admin),
     role: (profile.role as string | null) ?? null,
-    isManager: userJob === "gerente", 
+    isManager: userJob === "gerente",
   };
 }
 
-// 🚀 TIER-1: Tipagem Master atualizada com a Description
 export type ServiceRow = {
   id: string;
   name: string;
-  description?: string | null; // 👈 A descrição agora é reconhecida pelo servidor!
+  description?: string | null;
   price: number;
   duration_min: number;
-  promo_percentage?: number; 
-  promo_days?: number[];     
+  promo_percentage?: number;
+  promo_days?: number[];
 };
 
 export async function listMasterServicesForShop(
@@ -83,18 +70,15 @@ export async function listMasterServicesForShop(
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
   const { data, error } = await admin
     .from("services")
-    // 🚀 Incluímos a description no SELECT explícito para economia de banda (evitar SELECT *)
     .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
-
   if (error) return { ok: false, message: error.message || "Não foi possível listar serviços." };
   return { ok: true, services: (data ?? []) as ServiceRow[] };
 }
 
 export async function createMasterService(
   env: ServicesEnv,
-  // 🚀 Assinatura atualizada para receber a descrição
   params: { barbeariaId: string; name: string; description?: string | null; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true; service: ServiceRow } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
@@ -103,7 +87,7 @@ export async function createMasterService(
     .insert({
       barbearia_id: params.barbeariaId,
       name: params.name,
-      description: params.description || null, // 🚀 Injeção segura no banco (se vazio, vira null)
+      description: params.description || null,
       price: params.price,
       duration_min: params.durationMin,
       promo_percentage: params.promoPercentage || 0,
@@ -111,14 +95,12 @@ export async function createMasterService(
     })
     .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .single();
-
   if (error || !data) return { ok: false, message: error?.message || "Falha ao criar serviço." };
   return { ok: true, service: data as ServiceRow };
 }
 
 export async function updateMasterService(
   env: ServicesEnv,
-  // 🚀 Assinatura atualizada
   params: { barbeariaId: string; serviceId: string; name: string; description?: string | null; price: number; durationMin: number; promoPercentage?: number; promoDays?: number[] },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
@@ -126,7 +108,7 @@ export async function updateMasterService(
     .from("services")
     .update({
       name: params.name,
-      description: params.description !== undefined ? params.description : null, // 🚀 Atualizando o campo no banco
+      description: params.description !== undefined ? params.description : null,
       price: params.price,
       duration_min: params.durationMin,
       promo_percentage: params.promoPercentage || 0,
@@ -134,7 +116,6 @@ export async function updateMasterService(
     })
     .eq("id", params.serviceId)
     .eq("barbearia_id", params.barbeariaId);
-
   if (error) return { ok: false, message: error.message || "Falha ao atualizar serviço." };
   return { ok: true };
 }
@@ -149,7 +130,6 @@ export async function deleteMasterService(
     .delete()
     .eq("id", params.serviceId)
     .eq("barbearia_id", params.barbeariaId);
-
   if (error) return { ok: false, message: error.message || "Falha ao excluir serviço." };
   return { ok: true };
 }
@@ -157,36 +137,22 @@ export async function deleteMasterService(
 export async function listBarberServiceToggles(
   env: ServicesEnv,
   params: { barbeariaId: string; barberId: string },
-): Promise<
-  | { ok: true; services: ServiceRow[]; activeServiceIds: string[] }
-  | { ok: false; message: string }
-> {
+): Promise<{ ok: true; services: ServiceRow[]; activeServiceIds: string[] } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
-
   const { data: master, error: masterErr } = await admin
     .from("services")
-    // 🚀 Incluindo na listagem para não quebrar a tipagem do barbeiro
     .select("id, name, description, price, duration_min, promo_percentage, promo_days")
     .eq("barbearia_id", params.barbeariaId)
     .order("name", { ascending: true });
-
-  if (masterErr) {
-    return { ok: false, message: masterErr.message || "Falha ao listar serviços da barbearia." };
-  }
+  if (masterErr) return { ok: false, message: masterErr.message || "Falha ao listar serviços da barbearia." };
 
   const { data: links, error: linksErr } = await admin
     .from("barber_services")
     .select("service_id, is_active")
     .eq("professional_id", params.barberId);
+  if (linksErr) return { ok: false, message: linksErr.message || "Falha ao listar seus serviços." };
 
-  if (linksErr) {
-    return { ok: false, message: linksErr.message || "Falha ao listar seus serviços." };
-  }
-
-  const activeIds = (links ?? [])
-    .filter((l: any) => l?.is_active)
-    .map((l: any) => String(l.service_id));
-
+  const activeIds = (links ?? []).filter((l: any) => l?.is_active).map((l: any) => String(l.service_id));
   return { ok: true, services: (master ?? []) as ServiceRow[], activeServiceIds: activeIds };
 }
 
@@ -195,32 +161,27 @@ export async function upsertBarberServiceToggle(
   params: { barbeariaId: string; barberId: string; serviceId: string; isActive: boolean },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
-
   const { data: svc, error: svcErr } = await admin
     .from("services")
     .select("id")
     .eq("id", params.serviceId)
     .eq("barbearia_id", params.barbeariaId)
     .maybeSingle();
-
-  if (svcErr || !svc) {
-    return { ok: false, message: "Serviço inválido para esta barbearia." };
-  }
+  if (svcErr || !svc) return { ok: false, message: "Serviço inválido para esta barbearia." };
 
   const { error } = await admin
     .from("barber_services")
     .upsert(
-      {
-        professional_id: params.barberId,
-        service_id: params.serviceId,
-        is_active: params.isActive,
-      },
+      { professional_id: params.barberId, service_id: params.serviceId, is_active: params.isActive },
       { onConflict: "professional_id,service_id" },
     );
-
   if (error) return { ok: false, message: error.message || "Falha ao atualizar seus serviços." };
   return { ok: true };
 }
+
+// ─── Tipagem da barbearia ────────────────────────────────────────────────────
+
+type DaySchedule = { open: string; close: string; closed: boolean };
 
 export type BarbershopSettingsRow = {
   id: string;
@@ -237,6 +198,10 @@ export type BarbershopSettingsRow = {
   instagram_url: string | null;
   whatsapp: string | null;
   location: any | null;
+  // ✅ Campos novos
+  about: string | null;
+  working_hours: Record<string, DaySchedule> | null;
+  payment_methods: string[] | null;
 };
 
 export async function getBarbershopSettings(
@@ -244,16 +209,14 @@ export async function getBarbershopSettings(
   params: { barbeariaId: string },
 ): Promise<{ ok: true; shop: BarbershopSettingsRow } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
-  
   const { data, error } = await admin
     .from("barbearias")
-    .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, whatsapp, location")
+    // ✅ about, working_hours, payment_methods incluídos
+    .select("id, name, neighborhood, categories, cover_image, zip_code, street, address_number, complement, city, state, instagram_url, whatsapp, location, about, working_hours, payment_methods")
     .eq("id", params.barbeariaId)
     .maybeSingle();
 
-  if (error || !data) {
-    return { ok: false, message: error?.message || "Não foi possível carregar a barbearia." };
-  }
+  if (error || !data) return { ok: false, message: error?.message || "Não foi possível carregar a barbearia." };
   return { ok: true, shop: data as BarbershopSettingsRow };
 }
 
@@ -274,10 +237,13 @@ export async function updateBarbershopSettings(
     instagram_url?: string | null;
     whatsapp?: string | null;
     location?: string | null;
+    // ✅ Campos novos
+    about?: string | null;
+    working_hours?: Record<string, DaySchedule> | null;
+    payment_methods?: string[] | null;
   },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const admin = adminClient(env.supabaseUrl, env.serviceRoleKey);
-  
   const { error } = await admin
     .from("barbearias")
     .update({
@@ -294,6 +260,10 @@ export async function updateBarbershopSettings(
       instagram_url: params.instagram_url,
       whatsapp: params.whatsapp,
       location: params.location,
+      // ✅ Salva os novos campos no banco
+      about: params.about ?? null,
+      working_hours: params.working_hours ?? null,
+      payment_methods: params.payment_methods ?? null,
     })
     .eq("id", params.barbeariaId);
 

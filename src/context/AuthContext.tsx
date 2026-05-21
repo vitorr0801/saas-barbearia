@@ -1,3 +1,4 @@
+// src/context/AuthContext.tsx
 "use client";
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -5,19 +6,20 @@ import { User } from "@supabase/supabase-js";
 
 export type Role = "cliente" | "barbeiro";
 
-export interface AuthUser { 
-  id: string; 
-  name: string; 
-  phone: string; 
-  cpf: string; 
-  email: string; 
-  role: Role; 
-  barbearia_id: string | null; 
+export interface AuthUser {
+  id: string;
+  name: string;
+  phone: string;
+  cpf: string;
+  email: string;
+  role: Role;
+  barbearia_id: string | null;
   is_admin: boolean;
-
-  // 🚀 NOVAS PROPRIEDADES DO RBAC (Padrão Strict Supabase)
+  // RBAC
   job_title?: string | null;
   provides_services?: boolean | null;
+  // ✅ NOVO: avatar exposto para todo o app
+  avatar_url?: string | null;
 }
 
 interface AuthContextValue {
@@ -26,6 +28,7 @@ interface AuthContextValue {
   isLoading: boolean;
   role: Role | null;
   logout: () => Promise<void>;
+  signOut: () => Promise<void>; // alias para compatibilidade
   refreshUser: () => Promise<void>;
 }
 
@@ -39,15 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      /**
-       * 🚀 TIER-1: BUSCA HÍBRIDA MULTI-TENANT
-       * Buscamos o perfil básico E verificamos se ele existe na tabela de convites/profissionais.
-       * Isso garante que barbeiros convidados carreguem o barbearia_id IMEDIATAMENTE.
-       */
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
         .maybeSingle();
 
       if (profileError) throw profileError;
@@ -56,22 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let finalBarbeariaId = profileData.barbearia_id;
         let isAdmin = Boolean(profileData.is_admin);
 
-        /**
-         * 🕵️ PENTE FINO: Se ele é barbeiro mas não tem barbearia_id no perfil,
-         * verificamos se ele foi vinculado via convite em outra tabela (ex: profissionais ou equipe).
-         * Ajuste o nome da tabela abaixo ('equipe') conforme sua estrutura.
-         */
-        if (profileData.role === 'barbeiro' && !finalBarbeariaId) {
+        if (profileData.role === "barbeiro" && !finalBarbeariaId) {
           const { data: teamData } = await supabase
-            .from('equipe') // ou 'profissionais'
-            .select('barbearia_id')
-            .eq('usuario_id', user.id)
+            .from("equipe")
+            .select("barbearia_id")
+            .eq("usuario_id", user.id)
             .maybeSingle();
-          
+
           if (teamData) {
             finalBarbeariaId = teamData.barbearia_id;
-            // Se ele é funcionário, ele geralmente não é o admin da barbearia
-            isAdmin = false; 
+            isAdmin = false;
           }
         }
 
@@ -84,9 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: profileData.role as Role,
           barbearia_id: finalBarbeariaId,
           is_admin: isAdmin,
-          // 🚀 Lendo e populando os dados do banco para o App inteiro usar!
           job_title: profileData.job_title || "Barbeiro",
           provides_services: profileData.provides_services ?? true,
+          // ✅ Prioriza a tabela profiles como fonte de verdade
+          // Fallback para metadados da sessão Auth (atualizado no upload)
+          avatar_url: profileData.avatar_url || user.user_metadata?.avatar_url || null,
         });
       }
     } catch (err) {
@@ -101,9 +95,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!mounted) return;
-      
+
       if (session?.user) {
         await fetchUserProfile(session.user);
       } else {
@@ -113,17 +109,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
-      console.log(`[Auth Event]: ${event}`);
-
-      // 🛡️ SECURITY: Gerenciamento rigoroso de estados de sessão
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        if (session?.user) {
-          fetchUserProfile(session.user);
-        }
-      } else if (event === 'SIGNED_OUT') {
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        if (session?.user) fetchUserProfile(session.user);
+      } else if (event === "SIGNED_OUT") {
         setCurrentUser(null);
         setIsLoading(false);
       }
@@ -148,18 +141,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session?.user) await fetchUserProfile(session.user);
   }, [fetchUserProfile]);
 
-  const value = useMemo(() => ({ 
-    currentUser, 
-    role: currentUser?.role ?? null, 
-    isAuthenticated: !!currentUser, 
-    isLoading, 
-    logout, 
-    refreshUser 
-  }), [currentUser, isLoading]);
+  const value = useMemo(
+    () => ({
+      currentUser,
+      role: currentUser?.role ?? null,
+      isAuthenticated: !!currentUser,
+      isLoading,
+      logout,
+      signOut: logout, // alias para compatibilidade com BarberProfile.tsx
+      refreshUser,
+    }),
+    [currentUser, isLoading, logout, refreshUser]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

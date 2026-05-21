@@ -10,18 +10,19 @@ import { WORK_DAY_KEYS, type WorkDayKey } from "@/constants/workHours";
 interface BarberWorkHoursModalProps {
   barberId: string | null;
   barberName: string;
+  barbeariaId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 const defaultSchedule: Record<WorkDayKey, { enabled: boolean; start: string; end: string }> = {
   dom: { enabled: false, start: "09:00", end: "19:00" },
-  seg: { enabled: true, start: "09:00", end: "19:00" },
-  ter: { enabled: true, start: "09:00", end: "19:00" },
-  qua: { enabled: true, start: "09:00", end: "19:00" },
-  qui: { enabled: true, start: "09:00", end: "19:00" },
-  sex: { enabled: true, start: "09:00", end: "20:00" },
-  sab: { enabled: true, start: "08:00", end: "17:00" },
+  seg: { enabled: true,  start: "09:00", end: "19:00" },
+  ter: { enabled: true,  start: "09:00", end: "19:00" },
+  qua: { enabled: true,  start: "09:00", end: "19:00" },
+  qui: { enabled: true,  start: "09:00", end: "19:00" },
+  sex: { enabled: true,  start: "09:00", end: "20:00" },
+  sab: { enabled: true,  start: "08:00", end: "17:00" },
 };
 
 function normalizeTimeForSelect(value: unknown, fallback: string): string {
@@ -33,7 +34,7 @@ function normalizeTimeForSelect(value: unknown, fallback: string): string {
 
 function toPostgresTime(hhmm: string): string {
   const t = hhmm.trim();
-  if (/^\d{2}:\d{2}$/.test(t)) return `${t}:00`;
+  if (/^\d{2}:\d{2}$/.test(t))       return `${t}:00`;
   if (/^\d{2}:\d{2}:\d{2}$/.test(t)) return t;
   return t;
 }
@@ -49,7 +50,9 @@ function normalizeDayKey(raw: unknown): WorkDayKey | null {
   return null;
 }
 
-function buildScheduleFromDbRows(rows: Array<{ day: unknown; start_time: unknown; end_time: unknown }>): typeof defaultSchedule {
+function buildScheduleFromDbRows(
+  rows: Array<{ day: unknown; start_time: unknown; end_time: unknown }>
+): typeof defaultSchedule {
   const base: Record<string, { enabled: boolean; start: string; end: string }> = {};
   for (const key of WORK_DAY_KEYS) {
     base[key] = { enabled: false, start: defaultSchedule[key].start, end: defaultSchedule[key].end };
@@ -61,16 +64,16 @@ function buildScheduleFromDbRows(rows: Array<{ day: unknown; start_time: unknown
     base[dayKey] = {
       enabled: true,
       start: normalizeTimeForSelect(row.start_time, def.start),
-      end: normalizeTimeForSelect(row.end_time, def.end),
+      end:   normalizeTimeForSelect(row.end_time,   def.end),
     };
   }
   return base as typeof defaultSchedule;
 }
 
-export function BarberWorkHoursModal({ barberId, barberName, open, onOpenChange }: BarberWorkHoursModalProps) {
+export function BarberWorkHoursModal({ barberId, barberName, barbeariaId, open, onOpenChange }: BarberWorkHoursModalProps) {
   const [schedule, setSchedule] = useState(defaultSchedule);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving,  setIsSaving]  = useState(false);
 
   const fetchSchedule = useCallback(async () => {
     if (!barberId || !open) return;
@@ -79,19 +82,19 @@ export function BarberWorkHoursModal({ barberId, barberName, open, onOpenChange 
       const { data, error } = await supabase
         .from("barber_work_hours")
         .select("day_of_week, start_time, end_time")
-        .eq("barber_id", barberId);
+        // ✅ CORREÇÃO: coluna correta é professional_id, não barber_id
+        .eq("professional_id", barberId);
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const rows = data.map((row) => ({
-          day: row.day_of_week,
+        const rows = data.map(row => ({
+          day:        row.day_of_week,
           start_time: row.start_time,
-          end_time: row.end_time,
+          end_time:   row.end_time,
         }));
         setSchedule(buildScheduleFromDbRows(rows));
       } else {
-        // Se não houver horário, reseta para o padrão
         setSchedule(defaultSchedule);
       }
     } catch (err: any) {
@@ -107,11 +110,10 @@ export function BarberWorkHoursModal({ barberId, barberName, open, onOpenChange 
   }, [fetchSchedule]);
 
   const handleScheduleChange = (day: string, field: string, value: string | boolean) => {
-    setSchedule((prev) => {
+    setSchedule(prev => {
       const key = day as WorkDayKey;
       const current = prev[key];
       if (!current) return prev;
-
       if (field === "enabled" && value === false) {
         const defaults = defaultSchedule[key];
         return { ...prev, [day]: { enabled: false, start: defaults.start, end: defaults.end } };
@@ -124,26 +126,29 @@ export function BarberWorkHoursModal({ barberId, barberName, open, onOpenChange 
     if (!barberId) return;
     setIsSaving(true);
     const toastId = toast.loading(`Salvando horários de ${barberName}...`);
-
     try {
-      // 1. Apaga a agenda antiga inteira (Bulk Delete)
+      // 1. Apaga a agenda antiga inteira
       const { error: deleteError } = await supabase
         .from("barber_work_hours")
         .delete()
-        .eq("barber_id", barberId);
+        // ✅ CORREÇÃO: coluna correta é professional_id, não barber_id
+        .eq("professional_id", barberId);
 
       if (deleteError) throw deleteError;
 
-      const dayToInt: Record<string, number> = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
+      const dayToInt: Record<string, number> = {
+        dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6,
+      };
 
       // 2. Prepara os novos dias ativos
       const activeHoursToInsert = WORK_DAY_KEYS
         .filter(day => schedule[day]?.enabled)
         .map(day => ({
-          barber_id: barberId,
-          day_of_week: dayToInt[day],
-          start_time: toPostgresTime(schedule[day].start),
-          end_time: toPostgresTime(schedule[day].end),
+          professional_id: barberId,
+          barbearia_id:    barbeariaId,
+          day_of_week:     dayToInt[day],
+          start_time:      toPostgresTime(schedule[day].start),
+          end_time:        toPostgresTime(schedule[day].end),
         }));
 
       // 3. Insere a nova agenda
@@ -178,23 +183,33 @@ export function BarberWorkHoursModal({ barberId, barberName, open, onOpenChange 
 
         <div className="flex-1 overflow-y-auto px-6 py-2">
           {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
           ) : (
             <div className="-mx-4 sm:mx-0">
-              {/* O seu componente visual original, reaproveitado! */}
-              <BarberWorkHours 
-                isEditing={true} 
-                schedule={schedule} 
-                onChange={handleScheduleChange} 
+              <BarberWorkHours
+                isEditing={true}
+                schedule={schedule}
+                onChange={handleScheduleChange}
               />
             </div>
           )}
         </div>
 
         <div className="p-6 pt-2 border-t border-border flex justify-end gap-2 mt-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={isSaving} className="bg-primary text-primary-foreground hover:bg-primary/90">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {isSaving
+              ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              : <Save className="h-4 w-4 mr-2" />
+            }
             Salvar Jornada
           </Button>
         </div>

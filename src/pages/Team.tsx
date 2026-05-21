@@ -211,7 +211,8 @@ export default function Team() {
         onOpenChange={() => setHoursModal(null)}
         barberId={hoursModal?.id || null}
         barberName={hoursModal?.name || ""}
-      />
+        barbeariaId={barbeariaId || undefined}
+/>
 
       {/* MODAL DE REMOÇÃO DE MEMBRO */}
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>

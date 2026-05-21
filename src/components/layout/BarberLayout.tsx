@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,11 +25,13 @@ export function BarberLayout() {
   const navigate = useNavigate()
   const { currentUser, logout, role, isLoading } = useAuth()
 
-  // 🚀 RBAC: Controle de Acesso Mundial
   const isOwner = Boolean(currentUser?.is_admin);
   const userJob = (currentUser?.job_title || "barbeiro").toLowerCase().trim();
   const isManager = userJob === "gerente";
   const isSecretary = userJob === "secretária" || userJob === "secretaria";
+
+  // ✅ NOVO: lê avatar_url do AuthContext (atualizado após upload)
+  const avatarUrl = currentUser?.avatar_url ?? null;
 
   const canSeePainel = !(isManager || isSecretary);
   const canSeeFinanceiro = isOwner;
@@ -38,13 +40,11 @@ export function BarberLayout() {
   const canSeeProdutos = isOwner || isManager || isSecretary;
   const canSeeServicos = isOwner || isManager || isSecretary;
 
-  // Extrai o primeiro nome para não quebrar o layout
   const displayName = useMemo(() => {
     if (!currentUser?.name) return "Perfil";
     return currentUser.name.split(" ")[0]; 
   }, [currentUser?.name]);
 
-  // Extrator de iniciais de alta performance para o Avatar
   const displayInitials = useMemo(() => {
     if (!currentUser?.name) return "U";
     const tokens = currentUser.name.trim().split(/\s+/);
@@ -63,12 +63,8 @@ export function BarberLayout() {
   return (
     <div className="min-h-screen bg-background flex">
       
-      {/* ========================================== */}
-      {/* 🚀 SIDEBAR DE LUXO (100% Navegação)        */}
-      {/* ========================================== */}
       <aside className="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-[#0a0c12] border-r border-white/5 z-50 shadow-[4px_0_24px_rgba(0,0,0,0.5)]">
         
-        {/* LOGO AREA */}
         <div className="h-20 flex items-center px-6 border-b border-white/5 shrink-0">
           <Link to="/dashboard" className="flex items-center gap-3 group">
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
@@ -80,7 +76,6 @@ export function BarberLayout() {
           </Link>
         </div>
 
-        {/* NAVEGAÇÃO PRINCIPAL */}
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1 no-scrollbar">
           <p className="text-[10px] font-black uppercase text-muted-foreground/50 tracking-[0.2em] mb-4 ml-2">Workspace</p>
           
@@ -137,12 +132,8 @@ export function BarberLayout() {
         </div>
       </aside>
 
-      {/* ========================================== */}
-      {/* 🚀 ÁREA PRINCIPAL E TOPBAR ENTERPRISE      */}
-      {/* ========================================== */}
       <main className="flex-1 lg:pl-64 flex flex-col min-h-screen relative">
         
-        {/* TOPBAR ENTERPRISE */}
         <header className="h-20 bg-[#0a0c12]/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-40 flex items-center justify-between px-4 sm:px-8">
           <div className="flex items-center gap-4">
             <button className="lg:hidden p-2 -ml-2 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(true)}>
@@ -153,11 +144,16 @@ export function BarberLayout() {
             </h1>
           </div>
 
-          {/* 🚀 AQUI ESTÁ: Perfil e Configurações da Conta no Topo Direito */}
           <div className="flex items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-3 hover:bg-white/5 p-1.5 pr-3 rounded-2xl transition-colors outline-none border border-transparent hover:border-white/10 group">
-                <Avatar className="w-9 h-9 rounded-xl border border-white/10 group-hover:border-primary/50 transition-colors">
+                <Avatar className="w-9 h-9 rounded-xl border border-white/10 group-hover:border-primary/50 transition-colors overflow-hidden">
+                  {/* ✅ Mostra a foto se existir; fallback automático para iniciais */}
+                  <AvatarImage
+                    src={avatarUrl ?? undefined}
+                    alt={displayName}
+                    className="object-cover object-center w-full h-full"
+                  />
                   <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold tracking-wider">
                     {displayInitials}
                   </AvatarFallback>
@@ -184,15 +180,11 @@ export function BarberLayout() {
           </div>
         </header>
 
-        {/* O BURACO NEGRO: É AQUI QUE O DASHBOARD E AS OUTRAS TELAS RENDERIZAM */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
           <Outlet />
         </div>
       </main>
 
-      {/* ========================================== */}
-      {/* 🚀 MENU MOBILE (OVERLAY CORTINA)           */}
-      {/* ========================================== */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-[999] lg:hidden flex">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
@@ -210,7 +202,6 @@ export function BarberLayout() {
                {canSeePainel && <NavItem to="/dashboard" icon={<LayoutDashboard />} label="Painel" isActive={location.pathname === "/dashboard"} onClick={() => setIsMobileMenuOpen(false)} />}
                <NavItem to="/agendamentos" icon={<Calendar />} label="Agenda" isActive={location.pathname.startsWith("/agendamentos")} onClick={() => setIsMobileMenuOpen(false)} />
                
-               {/* Bloco Catálogo Mobile */}
                {(canSeeServicos || canSeeProdutos) && (
                  <div className="py-2">
                    <div className="flex items-center gap-2 px-3 mb-2">
@@ -229,7 +220,6 @@ export function BarberLayout() {
                {canSeeConfiguracoes && <NavItem to="/dashboard/configuracoes" icon={<Settings />} label="Configurações" isActive={location.pathname.startsWith("/dashboard/configuracoes")} onClick={() => setIsMobileMenuOpen(false)} />}
             </div>
 
-            {/* Perfil no Mobile ainda precisa ficar no menu lateral para acesso rápido */}
             <div className="p-4 border-t border-white/5 bg-[#0a0c12]/50">
               <Link to="/perfil/barbeiro" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/30 transition-all cursor-pointer">
                 <div className="w-9 h-9 rounded-xl bg-[#0a0c12] border border-white/10 flex items-center justify-center shrink-0">
@@ -252,7 +242,6 @@ export function BarberLayout() {
   )
 }
 
-// 🚀 COMPONENTE AUXILIAR DE NAVEGAÇÃO
 function NavItem({ icon, label, to, isActive, onClick }: { icon: React.ReactNode, label: string, to: string, isActive: boolean, onClick?: () => void }) {
   return (
     <Link 
