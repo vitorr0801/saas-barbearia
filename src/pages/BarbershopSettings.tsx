@@ -80,6 +80,7 @@ export default function BarbershopSettings() {
   const [zipCode, setZipCode]               = useState("");
   const [street, setStreet]                 = useState("");
   const [addressNumber, setAddressNumber]   = useState("");
+  const [noNumber, setNoNumber]             = useState(false); // 🚀 Novo estado para a lógica "S/N"
   const [complement, setComplement]         = useState("");
   const [neighborhood, setNeighborhood]     = useState("");
   const [city, setCity]                     = useState("");
@@ -124,7 +125,11 @@ export default function BarbershopSettings() {
 
       setZipCode(shop?.zip_code ?? "");
       setStreet(shop?.street ?? "");
-      setAddressNumber(shop?.address_number ?? "");
+      
+      const num = shop?.address_number ?? "";
+      setAddressNumber(num);
+      if (num.toUpperCase() === "S/N") setNoNumber(true); // 🚀 Inicia a flag se já for S/N
+      
       setComplement(shop?.complement ?? "");
       setNeighborhood(shop?.neighborhood ?? "");
       setCity(shop?.city ?? "");
@@ -139,6 +144,18 @@ export default function BarbershopSettings() {
   };
 
   useEffect(() => { void loadAll(); }, []);
+
+  // ── Handlers Novos (UX Tier-1) ─────────────────────────────────────────────
+  
+  const handleNoNumberToggle = () => {
+    setNoNumber(!noNumber);
+    if (!noNumber) {
+      setAddressNumber("S/N");
+    } else {
+      setAddressNumber("");
+      setTimeout(() => numberInputRef.current?.focus(), 50);
+    }
+  };
 
   // ── CEP ─────────────────────────────────────────────────────────────────────
 
@@ -156,7 +173,10 @@ export default function BarbershopSettings() {
           setNeighborhood(data.bairro || "");
           setCity(data.localidade || "");
           setState(data.uf || "");
-          setTimeout(() => numberInputRef.current?.focus(), 100);
+          
+          if (!noNumber) {
+            setTimeout(() => numberInputRef.current?.focus(), 100);
+          }
         }
       } catch { toast.error("Erro ao buscar CEP."); }
       finally { setIsFetchingCep(false); }
@@ -206,7 +226,6 @@ export default function BarbershopSettings() {
     if (error) throw new Error("Falha ao enviar a imagem.");
     const { data: pub } = supabase.storage.from("barbershop-assets")
       .getPublicUrl(`cover_${user.id}_${Date.now()}.${ext}`);
-    // Rebusca a URL correta após o upload
     const { data: list } = await supabase.storage.from("barbershop-assets").list("", { limit: 1, search: `cover_${user.id}` });
     if (list && list.length > 0) {
       const { data: p } = supabase.storage.from("barbershop-assets").getPublicUrl(list[0].name);
@@ -238,12 +257,21 @@ export default function BarbershopSettings() {
 
   const handleSave = async () => {
     if (shopName.trim().length < 2) return toast.error("O nome da barbearia é obrigatório.");
+    
+    // 🚀 Validação Básica Endereço se estiver na aba local
+    if (activeTab === "local") {
+      if (!zipCode || !street || !addressNumber || !neighborhood || !city || !state) {
+        return toast.error("Preencha todos os campos obrigatórios do endereço.");
+      }
+    }
+
     setSaving(true);
     const toastId = toast.loading("Salvando configurações...");
     try {
       const cover = await uploadCoverIfNeeded();
       let locationPoint = savedLocation;
       const currentAddress = `${street}|${addressNumber}|${neighborhood}|${city}|${state}`;
+      
       if (currentAddress !== initialAddressRef.current || !savedLocation) {
         if (city && state) {
           locationPoint = await fetchCoordinates(street, addressNumber, neighborhood, city, state);
@@ -334,8 +362,8 @@ export default function BarbershopSettings() {
             <div className={cn("space-y-6 animate-in fade-in duration-300", activeTab === "perfil" ? "block" : "hidden")}>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Nome Oficial</Label>
-                  <Input value={shopName} onChange={e => setShopName(e.target.value)} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Nome Oficial <span className="text-red-500">*</span></Label>
+                  <Input value={shopName} onChange={e => setShopName(e.target.value)} maxLength={100} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Tags Principais (Máx. 3)</Label>
@@ -358,16 +386,17 @@ export default function BarbershopSettings() {
 
               <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/40">
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
-                    <Instagram className="w-3 h-3"/> Instagram
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5"><Instagram className="w-3 h-3"/> Instagram</span>
+                    <span className="text-muted-foreground/50">Opcional</span>
                   </Label>
-                  <Input placeholder="@suabarbearia" value={instagramUrl} onChange={e => setInstagramUrl(e.target.value)} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
+                  <Input placeholder="@suabarbearia" value={instagramUrl} onChange={e => setInstagramUrl(e.target.value)} maxLength={255} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
-                    <Phone className="w-3 h-3"/> WhatsApp
+                    <Phone className="w-3 h-3"/> WhatsApp <span className="text-red-500">*</span>
                   </Label>
-                  <Input placeholder="(11) 99999-9999" value={shopPhone} onChange={e => setShopPhone(e.target.value)} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
+                  <Input placeholder="(11) 99999-9999" value={shopPhone} onChange={e => setShopPhone(e.target.value)} maxLength={15} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                 </div>
               </div>
 
@@ -397,7 +426,7 @@ export default function BarbershopSettings() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20">
+              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
                 {saving ? "Sincronizando..." : "Salvar Perfil"}
               </Button>
             </div>
@@ -407,8 +436,9 @@ export default function BarbershopSettings() {
 
               {/* Sobre */}
               <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <FileText className="w-3 h-3"/> Sobre a Barbearia
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><FileText className="w-3 h-3"/> Sobre a Barbearia</span>
+                  <span className="text-muted-foreground/50">Opcional</span>
                 </Label>
                 <Textarea
                   value={about}
@@ -417,15 +447,15 @@ export default function BarbershopSettings() {
                   maxLength={500}
                   rows={5}
                   disabled={saving}
-                  className="rounded-xl bg-secondary/50 border-none resize-none text-sm"
+                  className="rounded-xl bg-secondary/50 border-none resize-none text-sm p-4"
                 />
-                <p className="text-[10px] text-muted-foreground text-right">{about.length}/500</p>
+                <p className="text-[10px] font-bold text-muted-foreground text-right">{about.length}/500</p>
               </div>
 
               {/* Formas de pagamento */}
               <div className="space-y-3 pt-4 border-t border-border/40">
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <CreditCard className="w-3 h-3"/> Formas de Pagamento
+                  <CreditCard className="w-3 h-3"/> Formas de Pagamento <span className="text-red-500">*</span>
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {PAYMENT_OPTIONS.map(opt => {
@@ -452,7 +482,7 @@ export default function BarbershopSettings() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20">
+              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
                 {saving ? "Salvando..." : "Salvar Informações"}
               </Button>
             </div>
@@ -534,54 +564,94 @@ export default function BarbershopSettings() {
                 })}
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20">
+              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
                 {saving ? "Salvando..." : "Salvar Horários"}
               </Button>
             </div>
 
-            {/* ── ABA: LOCALIZAÇÃO ── */}
+            {/* ── ABA: LOCALIZAÇÃO (TIER-1 UX) ── */}
             <div className={cn("space-y-6 animate-in fade-in duration-300", activeTab === "local" ? "block" : "hidden")}>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2 md:col-span-1">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">CEP</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    CEP <span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
-                    <Input placeholder="00000-000" maxLength={9} value={zipCode} onChange={handleCepChange} className="bg-secondary/50 border-none h-12 font-mono" />
-                    {isFetchingCep && <Search className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-primary" />}
+                    <Input placeholder="00000-000" maxLength={9} value={zipCode} onChange={handleCepChange} disabled={saving} className="bg-secondary/50 border-none h-12 font-mono" />
+                    {isFetchingCep && <Search className="absolute right-4 top-4 h-4 w-4 animate-spin text-primary" />}
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rua / Avenida</Label>
-                  <Input value={street} onChange={e => setStreet(e.target.value)} className="bg-secondary/50 border-none h-12" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Rua / Avenida <span className="text-red-500">*</span>
+                  </Label>
+                  <Input value={street} onChange={e => setStreet(e.target.value)} maxLength={150} disabled={saving} className="bg-secondary/50 border-none h-12" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Número</Label>
-                  <Input ref={numberInputRef} value={addressNumber} onChange={e => setAddressNumber(e.target.value)} className="bg-secondary/50 border-none h-12" />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="space-y-2 relative">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Número <span className="text-red-500">*</span>
+                  </Label>
+                  <Input 
+                    ref={numberInputRef} 
+                    value={addressNumber} 
+                    onChange={e => setAddressNumber(e.target.value)} 
+                    maxLength={15} 
+                    disabled={saving || noNumber} 
+                    placeholder="Ex: 123"
+                    className={cn("bg-secondary/50 border-none h-12", noNumber && "opacity-50 cursor-not-allowed")} 
+                  />
+                  {/* 🚀 O Checkbox Fantasma "Sem número" abaixo do input */}
+                  <label className="flex items-center gap-2 cursor-pointer pt-1 pl-1">
+                    <div className="relative flex items-center justify-center w-3 h-3 rounded-sm border border-muted-foreground/50 bg-transparent transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={noNumber} 
+                        onChange={handleNoNumberToggle} 
+                        className="absolute opacity-0 cursor-pointer w-full h-full"
+                      />
+                      {noNumber && <div className="w-1.5 h-1.5 bg-primary rounded-sm pointer-events-none" />}
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground select-none">
+                      Sem número
+                    </span>
+                  </label>
                 </div>
+
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Compl.</Label>
-                  <Input value={complement} onChange={e => setComplement(e.target.value)} className="bg-secondary/50 border-none h-12" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex justify-between">
+                    <span>Compl.</span>
+                    <span className="text-muted-foreground/50">Opcional</span>
+                  </Label>
+                  <Input value={complement} onChange={e => setComplement(e.target.value)} maxLength={50} disabled={saving} placeholder="Ex: Sala 2" className="bg-secondary/50 border-none h-12" />
                 </div>
+
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Bairro</Label>
-                  <Input value={neighborhood} onChange={e => setNeighborhood(e.target.value)} className="bg-secondary/50 border-none h-12" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Bairro <span className="text-red-500">*</span>
+                  </Label>
+                  <Input value={neighborhood} onChange={e => setNeighborhood(e.target.value)} maxLength={100} disabled={saving} className="bg-secondary/50 border-none h-12" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-6">
                 <div className="space-y-2 col-span-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cidade</Label>
-                  <Input value={city} onChange={e => setCity(e.target.value)} className="bg-secondary/50 border-none h-12" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Cidade <span className="text-red-500">*</span>
+                  </Label>
+                  <Input value={city} onChange={e => setCity(e.target.value)} maxLength={100} disabled={saving} className="bg-secondary/50 border-none h-12" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">UF</Label>
-                  <Input maxLength={2} value={state} onChange={e => setState(e.target.value.toUpperCase())} className="bg-secondary/50 border-none h-12 uppercase text-center" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    UF <span className="text-red-500">*</span>
+                  </Label>
+                  <Input maxLength={2} value={state} onChange={e => setState(e.target.value.toUpperCase())} disabled={saving} className="bg-secondary/50 border-none h-12 uppercase text-center" />
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20">
+              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
                 {saving ? "Atualizando Mapa..." : "Atualizar Endereço"}
               </Button>
             </div>
