@@ -8,7 +8,7 @@ import { generateSlotsFromShift } from "@/lib/bookingSlots";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
   CheckCircle2, MapPin, Store, Clock, Instagram, Phone,
-  Star, Scissors, Users, Info, User, Trash2, MessageCircle, CreditCard
+  Star, Scissors, Users, Info, User, Trash2, MessageCircle, CreditCard, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ServiceCard } from "@/components/booking/ServiceCard";
@@ -110,7 +110,13 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 
 // ─── Aba: Profissionais ──────────────────────────────────────────────────────
 
-function ProfessionaisTab({ professionals }: { professionals: any[] }) {
+function ProfessionaisTab({
+  professionals,
+  onSelectProfessional,
+}: {
+  professionals: any[];
+  onSelectProfessional: (prof: any) => void;
+}) {
   if (professionals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
@@ -133,12 +139,20 @@ function ProfessionaisTab({ professionals }: { professionals: any[] }) {
             <div className="flex-1 min-w-0">
               <p className="font-black text-sm uppercase tracking-tight text-foreground truncate">{prof.name}</p>
               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">{prof.job_title || "Barbeiro"}</p>
-              {handle && (
-                <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 text-purple-400 hover:text-purple-300 hover:border-purple-500/40 transition-all">
-                  <Instagram className="w-3 h-3" /> @{handle}
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                {handle && (
+                  <a href={`https://instagram.com/${handle}`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 text-purple-400 hover:text-purple-300 hover:border-purple-500/40 transition-all">
+                    <Instagram className="w-3 h-3" /> @{handle}
+                  </a>
+                )}
+                <button
+                  onClick={() => onSelectProfessional(prof)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/40 transition-all"
+                >
+                  <Scissors className="w-3 h-3" /> Ver serviços
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -638,8 +652,50 @@ export default function Index() {
     }
   }, [location.state, services]);
 
-  const handleSelectService     = (id: string) => { setSelectedService(id); setSelectedProfessional(null); setSelectedTime(null); };
+  // filteredServices: quando um profissional já foi pré-selecionado (fluxo invertido),
+  // exibe apenas os serviços que ele realiza. No fluxo normal, exibe tudo.
+  const filteredServices = useMemo(() => {
+    if (!selectedProfessional || selectedService) return services;
+    return services.filter((s: any) =>
+      s.availableProfs.some((p: any) => p.id === selectedProfessional)
+    );
+  }, [services, selectedProfessional, selectedService]);
+
+  // Nome do profissional que está sendo usado como filtro (fluxo invertido)
+  const filterProfName = useMemo(() => {
+    if (!selectedProfessional || selectedService) return null;
+    return professionals.find((p: any) => p.id === selectedProfessional)?.name ?? null;
+  }, [professionals, selectedProfessional, selectedService]);
+
+  const handleSelectService = (id: string) => {
+    setSelectedTime(null);
+    if (!id) {
+      // "Alterar" — reinicia o fluxo completamente
+      setSelectedService(null);
+      setSelectedProfessional(null);
+      return;
+    }
+    // Fluxo invertido: profissional pré-selecionado e serviço ainda não escolhido
+    const fromProfFilter = !!selectedProfessional && !selectedService;
+    setSelectedService(id);
+    if (!fromProfFilter) {
+      setSelectedProfessional(null);
+    } else {
+      // Profissional já definido — rola suavemente para o Passo 3
+      setTimeout(() => {
+        document.getElementById("step-3")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  };
+
   const handleSelectProfessional = (id: string) => { setSelectedProfessional(id); setSelectedTime(null); };
+
+  const handleSelectFromProfTab = (prof: any) => {
+    setSelectedProfessional(prof.id);
+    setSelectedService(null);
+    setSelectedTime(null);
+    setActiveTab("servicos");
+  };
 
   const dayOfWeekInt = useMemo(() => {
     if (!selectedDate) return null;
@@ -749,7 +805,7 @@ export default function Index() {
       <BookingAuthRequiredDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
       <Header />
 
-      <div className="container max-w-4xl mx-auto px-4 sm:px-6 pt-24">
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 pt-24">
 
         {/* Voltar */}
         <div className="flex items-center justify-between mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -823,10 +879,27 @@ export default function Index() {
                   <button onClick={() => handleSelectService("")} className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline bg-primary/10 px-3 py-1.5 rounded-full">Alterar</button>
                 )}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 items-start">
+              {/* Badge de filtro ativo — aparece quando profissional foi pré-selecionado */}
+              {filterProfName && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary/10 border border-primary/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Scissors className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-[11px] font-bold text-primary flex-1">
+                    Mostrando serviços de <span className="font-black">{filterProfName}</span>
+                  </p>
+                  <button
+                    onClick={() => setSelectedProfessional(null)}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors shrink-0"
+                    aria-label="Limpar filtro"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 items-start">
                 {isDataLoading
                   ? [1,2,3].map(i => <div key={i} className="h-32 w-full bg-secondary/50 animate-pulse rounded-3xl border border-border/50"/>)
-                  : services.map((s: any) => (
+                  : filteredServices.map((s: any) => (
                     <ServiceCard key={s.id}
                       service={{...s, duration: s.durationDisplay, promoText: null}}
                       isSelected={selectedService === s.id}
@@ -868,7 +941,7 @@ export default function Index() {
             </section>
 
             {/* Passo 3 */}
-            <section className={cn("space-y-6 transition-all duration-500",
+            <section id="step-3" className={cn("space-y-6 transition-all duration-500",
               (!selectedService || !selectedProfessional) && "opacity-30 pointer-events-none blur-[1px] grayscale-[50%]"
             )}>
               <div className="flex items-center gap-3">
@@ -905,7 +978,7 @@ export default function Index() {
           <div className="animate-in fade-in duration-300">
             {isDataLoading
               ? <div className="grid gap-4 sm:grid-cols-2">{[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl bg-secondary/50 animate-pulse"/>)}</div>
-              : <ProfessionaisTab professionals={professionals}/>
+              : <ProfessionaisTab professionals={professionals} onSelectProfessional={handleSelectFromProfTab}/>
             }
           </div>
         )}

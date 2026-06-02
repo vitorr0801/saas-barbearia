@@ -250,6 +250,22 @@
     background: var(--gradient-chart);
   }
 
+  .btn-save-active {
+    background-color: hsl(142 76% 36%);
+    color: white;
+    box-shadow: 0 0 20px hsl(142 76% 36% / 0.45), 0 4px 16px hsl(142 76% 36% / 0.25);
+    animation: save-glow 2s ease-in-out infinite;
+  }
+  .btn-save-active:hover {
+    background-color: hsl(142 76% 40%);
+    box-shadow: 0 0 32px hsl(142 76% 36% / 0.65), 0 6px 24px hsl(142 76% 36% / 0.4);
+    transform: scale(1.02);
+  }
+  @keyframes save-glow {
+    0%, 100% { box-shadow: 0 0 18px hsl(142 76% 36% / 0.4), 0 4px 14px hsl(142 76% 36% / 0.2); }
+    50%       { box-shadow: 0 0 32px hsl(142 76% 36% / 0.7), 0 4px 22px hsl(142 76% 36% / 0.45); }
+  }
+
   .animate-pulse-subtle {
     animation: pulse-subtle 2s ease-in-out infinite;
   }

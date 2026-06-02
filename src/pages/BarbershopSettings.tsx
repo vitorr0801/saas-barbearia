@@ -53,11 +53,36 @@ const DEFAULT_HOURS: WorkingHours = Object.fromEntries(
 
 type TabId = "perfil" | "info" | "horarios" | "local";
 
+type Snapshot = {
+  shopName: string;
+  categories: string[];
+  instagramUrl: string;
+  shopPhone: string;
+  coverImageUrl: string | null;
+  about: string;
+  paymentMethods: string[];
+  workingHours: WorkingHours;
+  zipCode: string;
+  street: string;
+  addressNumber: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+};
+
+const EMPTY_SNAPSHOT: Snapshot = {
+  shopName: "", categories: [], instagramUrl: "", shopPhone: "",
+  coverImageUrl: null, about: "", paymentMethods: [], workingHours: DEFAULT_HOURS,
+  zipCode: "", street: "", addressNumber: "", complement: "",
+  neighborhood: "", city: "", state: "",
+};
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function BarbershopSettings() {
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("perfil");
 
   // Perfil
@@ -80,7 +105,7 @@ export default function BarbershopSettings() {
   const [zipCode, setZipCode]               = useState("");
   const [street, setStreet]                 = useState("");
   const [addressNumber, setAddressNumber]   = useState("");
-  const [noNumber, setNoNumber]             = useState(false); // 🚀 Novo estado para a lógica "S/N"
+  const [noNumber, setNoNumber]             = useState(false);
   const [complement, setComplement]         = useState("");
   const [neighborhood, setNeighborhood]     = useState("");
   const [city, setCity]                     = useState("");
@@ -89,6 +114,9 @@ export default function BarbershopSettings() {
   const numberInputRef = useRef<HTMLInputElement>(null);
   const [savedLocation, setSavedLocation]   = useState<any | null>(null);
   const initialAddressRef                   = useRef<string>("");
+
+  // Snapshot dos valores salvos — atualizado após load e após save bem-sucedido
+  const savedSnapshotRef = useRef<Snapshot>({ ...EMPTY_SNAPSHOT });
 
   const coverPreviewUrl = useMemo(() => {
     if (!coverFile) return coverImageUrl;
@@ -99,6 +127,45 @@ export default function BarbershopSettings() {
     return () => { if (coverFile && coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl); };
   }, [coverFile, coverPreviewUrl]);
 
+  // ── Dirty por aba — compara estado atual com o snapshot salvo ────────────────
+
+  const perfilDirty = useMemo(() => {
+    const s = savedSnapshotRef.current;
+    return (
+      shopName !== s.shopName ||
+      JSON.stringify(categories) !== JSON.stringify(s.categories) ||
+      instagramUrl !== s.instagramUrl ||
+      shopPhone !== s.shopPhone ||
+      coverFile !== null
+    );
+  }, [shopName, categories, instagramUrl, shopPhone, coverFile]);
+
+  const infoDirty = useMemo(() => {
+    const s = savedSnapshotRef.current;
+    const sortedStr = (arr: string[]) => JSON.stringify([...arr].sort());
+    return (
+      about !== s.about ||
+      sortedStr(paymentMethods) !== sortedStr(s.paymentMethods)
+    );
+  }, [about, paymentMethods]);
+
+  const horariosDirty = useMemo(() => {
+    return JSON.stringify(workingHours) !== JSON.stringify(savedSnapshotRef.current.workingHours);
+  }, [workingHours]);
+
+  const localDirty = useMemo(() => {
+    const s = savedSnapshotRef.current;
+    return (
+      zipCode !== s.zipCode ||
+      street !== s.street ||
+      addressNumber !== s.addressNumber ||
+      complement !== s.complement ||
+      neighborhood !== s.neighborhood ||
+      city !== s.city ||
+      state !== s.state
+    );
+  }, [zipCode, street, addressNumber, complement, neighborhood, city, state]);
+
   // ── Load ────────────────────────────────────────────────────────────────────
 
   const loadAll = async () => {
@@ -107,35 +174,51 @@ export default function BarbershopSettings() {
       const { shop, error: shopErr } = await getMyShopSettings();
       if (shopErr) throw new Error(shopErr);
 
+      const loadedCategories = Array.isArray(shop?.categories) ? (shop!.categories as string[]) : [];
+      const loadedPayments   = Array.isArray(shop?.payment_methods) ? (shop!.payment_methods as string[]) : [];
+      const savedHours       = (shop?.working_hours ?? {}) as WorkingHours;
+      const mergedHours      = Object.fromEntries(
+        DAYS.map(d => [d.key, savedHours[d.key] ?? { ...DEFAULT_DAY }])
+      );
+      const num = shop?.address_number ?? "";
+
       setShopName(shop?.name ?? "");
-      setCategories(Array.isArray(shop?.categories) ? (shop!.categories as string[]) : []);
+      setCategories(loadedCategories);
       setCoverImageUrl(shop?.cover_image ?? null);
       setInstagramUrl(shop?.instagram_url ?? "");
       setShopPhone(shop?.whatsapp ?? "");
       setAbout(shop?.about ?? "");
-      setPaymentMethods(Array.isArray(shop?.payment_methods) ? (shop!.payment_methods as string[]) : []);
-
-      // Horários: merge com DEFAULT_HOURS para garantir todos os dias
-      const savedHours = (shop?.working_hours ?? {}) as WorkingHours;
-      setWorkingHours(
-        Object.fromEntries(
-          DAYS.map(d => [d.key, savedHours[d.key] ?? { ...DEFAULT_DAY }])
-        )
-      );
-
+      setPaymentMethods(loadedPayments);
+      setWorkingHours(mergedHours);
       setZipCode(shop?.zip_code ?? "");
       setStreet(shop?.street ?? "");
-      
-      const num = shop?.address_number ?? "";
       setAddressNumber(num);
-      if (num.toUpperCase() === "S/N") setNoNumber(true); // 🚀 Inicia a flag se já for S/N
-      
+      if (num.toUpperCase() === "S/N") setNoNumber(true);
       setComplement(shop?.complement ?? "");
       setNeighborhood(shop?.neighborhood ?? "");
       setCity(shop?.city ?? "");
       setState(shop?.state ?? "");
       setSavedLocation(shop?.location ?? null);
-      initialAddressRef.current = `${shop?.street ?? ""}|${shop?.address_number ?? ""}|${shop?.neighborhood ?? ""}|${shop?.city ?? ""}|${shop?.state ?? ""}`;
+      initialAddressRef.current = `${shop?.street ?? ""}|${num}|${shop?.neighborhood ?? ""}|${shop?.city ?? ""}|${shop?.state ?? ""}`;
+
+      // Atualiza snapshot para que os dirty flags comecem como false
+      savedSnapshotRef.current = {
+        shopName:       shop?.name ?? "",
+        categories:     loadedCategories,
+        instagramUrl:   shop?.instagram_url ?? "",
+        shopPhone:      shop?.whatsapp ?? "",
+        coverImageUrl:  shop?.cover_image ?? null,
+        about:          shop?.about ?? "",
+        paymentMethods: loadedPayments,
+        workingHours:   mergedHours,
+        zipCode:        shop?.zip_code ?? "",
+        street:         shop?.street ?? "",
+        addressNumber:  num,
+        complement:     shop?.complement ?? "",
+        neighborhood:   shop?.neighborhood ?? "",
+        city:           shop?.city ?? "",
+        state:          shop?.state ?? "",
+      };
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Falha ao carregar configurações.");
     } finally {
@@ -145,8 +228,8 @@ export default function BarbershopSettings() {
 
   useEffect(() => { void loadAll(); }, []);
 
-  // ── Handlers Novos (UX Tier-1) ─────────────────────────────────────────────
-  
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+
   const handleNoNumberToggle = () => {
     setNoNumber(!noNumber);
     if (!noNumber) {
@@ -156,8 +239,6 @@ export default function BarbershopSettings() {
       setTimeout(() => numberInputRef.current?.focus(), 50);
     }
   };
-
-  // ── CEP ─────────────────────────────────────────────────────────────────────
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCEP(e.target.value);
@@ -173,17 +254,12 @@ export default function BarbershopSettings() {
           setNeighborhood(data.bairro || "");
           setCity(data.localidade || "");
           setState(data.uf || "");
-          
-          if (!noNumber) {
-            setTimeout(() => numberInputRef.current?.focus(), 100);
-          }
+          if (!noNumber) setTimeout(() => numberInputRef.current?.focus(), 100);
         }
       } catch { toast.error("Erro ao buscar CEP."); }
       finally { setIsFetchingCep(false); }
     }
   };
-
-  // ── Categories ──────────────────────────────────────────────────────────────
 
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" && e.key !== ",") return;
@@ -198,13 +274,9 @@ export default function BarbershopSettings() {
     setCategoryInput("");
   };
 
-  // ── Horários ─────────────────────────────────────────────────────────────────
-
   const updateDay = (key: string, field: keyof DaySchedule, value: string | boolean) => {
     setWorkingHours(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
-
-  // ── Payment ──────────────────────────────────────────────────────────────────
 
   const togglePayment = (id: string) => {
     setPaymentMethods(prev =>
@@ -257,8 +329,7 @@ export default function BarbershopSettings() {
 
   const handleSave = async () => {
     if (shopName.trim().length < 2) return toast.error("O nome da barbearia é obrigatório.");
-    
-    // 🚀 Validação Básica Endereço se estiver na aba local
+
     if (activeTab === "local") {
       if (!zipCode || !street || !addressNumber || !neighborhood || !city || !state) {
         return toast.error("Preencha todos os campos obrigatórios do endereço.");
@@ -271,7 +342,7 @@ export default function BarbershopSettings() {
       const cover = await uploadCoverIfNeeded();
       let locationPoint = savedLocation;
       const currentAddress = `${street}|${addressNumber}|${neighborhood}|${city}|${state}`;
-      
+
       if (currentAddress !== initialAddressRef.current || !savedLocation) {
         if (city && state) {
           locationPoint = await fetchCoordinates(street, addressNumber, neighborhood, city, state);
@@ -299,6 +370,26 @@ export default function BarbershopSettings() {
       } as any);
 
       if (error) throw new Error(error);
+
+      // Atualiza o snapshot para resetar todos os dirty flags
+      savedSnapshotRef.current = {
+        shopName:       shopName.trim(),
+        categories:     [...categories],
+        instagramUrl,
+        shopPhone,
+        coverImageUrl:  cover,
+        about:          about.trim(),
+        paymentMethods: [...paymentMethods],
+        workingHours:   JSON.parse(JSON.stringify(workingHours)),
+        zipCode,
+        street,
+        addressNumber,
+        complement,
+        neighborhood,
+        city,
+        state,
+      };
+
       setCoverImageUrl(cover);
       setCoverFile(null);
       if (locationPoint) setSavedLocation(locationPoint);
@@ -318,6 +409,13 @@ export default function BarbershopSettings() {
     { id: "horarios", label: "Horários",    icon: <Clock   className="w-3.5 h-3.5" /> },
     { id: "local",    label: "Localização", icon: <MapPin  className="w-3.5 h-3.5" /> },
   ];
+
+  const saveButtonClass = (dirty: boolean) => cn(
+    "w-full h-14 rounded-2xl font-black uppercase text-xs tracking-widest mt-6 transition-all duration-300",
+    dirty && !saving
+      ? "btn-save-active"
+      : "bg-secondary/50 text-muted-foreground opacity-40 cursor-not-allowed shadow-none"
+  );
 
   return (
     <div className="container max-w-5xl mx-auto space-y-8 overflow-x-hidden pb-10">
@@ -366,7 +464,7 @@ export default function BarbershopSettings() {
                   <Input value={shopName} onChange={e => setShopName(e.target.value)} maxLength={100} disabled={saving} className="h-12 rounded-xl bg-secondary/50 border-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Tags Principais (Máx. 3)</Label>
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Tags Principais (Máx. 3) - aperte enter para adicionar</Label>
                   <Input placeholder="Ex: Cabelo, Barba" value={categoryInput}
                     onChange={e => setCategoryInput(e.target.value)}
                     onKeyDown={handleCategoryKeyDown} disabled={saving}
@@ -426,7 +524,7 @@ export default function BarbershopSettings() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
+              <Button onClick={handleSave} disabled={saving || !perfilDirty} className={saveButtonClass(perfilDirty)}>
                 {saving ? "Sincronizando..." : "Salvar Perfil"}
               </Button>
             </div>
@@ -482,7 +580,7 @@ export default function BarbershopSettings() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
+              <Button onClick={handleSave} disabled={saving || !infoDirty} className={saveButtonClass(infoDirty)}>
                 {saving ? "Salvando..." : "Salvar Informações"}
               </Button>
             </div>
@@ -505,12 +603,10 @@ export default function BarbershopSettings() {
                     )}>
                       {/* Linha superior: nome + toggle + status */}
                       <div className="flex items-center gap-4">
-                        {/* Nome do dia — largura fixa para alinhar todos */}
                         <span className="text-xs font-black uppercase tracking-widest text-foreground w-20 shrink-0">
                           {label}
                         </span>
 
-                        {/* Toggle */}
                         <button
                           type="button"
                           onClick={() => updateDay(key, "closed", !day.closed)}
@@ -525,7 +621,6 @@ export default function BarbershopSettings() {
                           )}/>
                         </button>
 
-                        {/* Status — largura fixa, nunca sobrepõe */}
                         <span className={cn(
                           "text-[11px] font-bold uppercase tracking-widest shrink-0",
                           day.closed ? "text-muted-foreground/50" : "text-primary"
@@ -564,12 +659,12 @@ export default function BarbershopSettings() {
                 })}
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
+              <Button onClick={handleSave} disabled={saving || !horariosDirty} className={saveButtonClass(horariosDirty)}>
                 {saving ? "Salvando..." : "Salvar Horários"}
               </Button>
             </div>
 
-            {/* ── ABA: LOCALIZAÇÃO (TIER-1 UX) ── */}
+            {/* ── ABA: LOCALIZAÇÃO ── */}
             <div className={cn("space-y-6 animate-in fade-in duration-300", activeTab === "local" ? "block" : "hidden")}>
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2 md:col-span-1">
@@ -594,22 +689,21 @@ export default function BarbershopSettings() {
                   <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                     Número <span className="text-red-500">*</span>
                   </Label>
-                  <Input 
-                    ref={numberInputRef} 
-                    value={addressNumber} 
-                    onChange={e => setAddressNumber(e.target.value)} 
-                    maxLength={15} 
-                    disabled={saving || noNumber} 
+                  <Input
+                    ref={numberInputRef}
+                    value={addressNumber}
+                    onChange={e => setAddressNumber(e.target.value)}
+                    maxLength={15}
+                    disabled={saving || noNumber}
                     placeholder="Ex: 123"
-                    className={cn("bg-secondary/50 border-none h-12", noNumber && "opacity-50 cursor-not-allowed")} 
+                    className={cn("bg-secondary/50 border-none h-12", noNumber && "opacity-50 cursor-not-allowed")}
                   />
-                  {/* 🚀 O Checkbox Fantasma "Sem número" abaixo do input */}
                   <label className="flex items-center gap-2 cursor-pointer pt-1 pl-1">
                     <div className="relative flex items-center justify-center w-3 h-3 rounded-sm border border-muted-foreground/50 bg-transparent transition-colors">
-                      <input 
-                        type="checkbox" 
-                        checked={noNumber} 
-                        onChange={handleNoNumberToggle} 
+                      <input
+                        type="checkbox"
+                        checked={noNumber}
+                        onChange={handleNoNumberToggle}
                         className="absolute opacity-0 cursor-pointer w-full h-full"
                       />
                       {noNumber && <div className="w-1.5 h-1.5 bg-primary rounded-sm pointer-events-none" />}
@@ -651,7 +745,7 @@ export default function BarbershopSettings() {
                 </div>
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-xs tracking-widest mt-6 shadow-lg shadow-emerald-900/20 transition-all hover:scale-[1.02]">
+              <Button onClick={handleSave} disabled={saving || !localDirty} className={saveButtonClass(localDirty)}>
                 {saving ? "Atualizando Mapa..." : "Atualizar Endereço"}
               </Button>
             </div>
