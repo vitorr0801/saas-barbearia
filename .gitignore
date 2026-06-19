@@ -33,3 +33,16 @@ node_modules/
 .next/
 .env*.local
 .DS_Store
+.env
+
+# Arquivos temporários e de cache do Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Caches de Linting e Cobertura de Testes
+.eslintcache
+coverage/
+
+# Arquivos ocultos adicionais do macOS
+._*
+.Trashes
