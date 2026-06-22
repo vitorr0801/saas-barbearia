@@ -68,10 +68,10 @@ export function FavoriteButton({ targetId, type, isFavorite }: FavoriteButtonPro
 
       toast.success(nextState ? "Favorito salvo!" : "Removido!");
 
-    } catch (error: any) {
+    } catch (error) {
       setActive(previousState);
       toast.error("Erro ao sincronizar.");
-      console.error("Erro:", error.message);
+      console.error("Erro:", error instanceof Error ? error.message : error);
     } finally {
       setLoading(false);
     }

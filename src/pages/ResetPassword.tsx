@@ -81,8 +81,8 @@ export default function ResetPassword() {
         navigate("/cadastro"); // Onde está o seu componente de Login
       }, 2000);
 
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar senha", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar senha", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }

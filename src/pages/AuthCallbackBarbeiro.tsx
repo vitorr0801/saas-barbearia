@@ -88,7 +88,7 @@ export default function AuthCallbackBarbeiro() {
           navigate("/dashboard", { replace: true });
         }, 500);
 
-      } catch (err: any) {
+      } catch (err) {
         console.error("Erro no Callback:", err);
         toast.error("Erro ao finalizar configuração.");
         navigate("/login-barbeiro");

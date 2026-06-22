@@ -101,8 +101,8 @@ export function BarberProfileHeader({
       toast.success("Foto atualizada!", { id: toastId });
       onAvatarUpdated(bustedUrl);
       cropper.closeCropper();
-    } catch (error: any) {
-      toast.error("Erro ao enviar foto: " + (error.message ?? "Tente novamente."), { id: toastId });
+    } catch (error) {
+      toast.error("Erro ao enviar foto: " + (error instanceof Error ? error.message : "Tente novamente."), { id: toastId });
     } finally {
       setIsUploading(false);
     }

@@ -77,7 +77,7 @@ function ProtectedRoute({
 
   if (!role) return <LoadingScreen message="Sincronizando perfil..." />;
 
-  if (allowedRoles && !allowedRoles.includes(role as any)) {
+  if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/" replace />;
   }
 

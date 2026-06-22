@@ -11,7 +11,7 @@ import {
   Star, Scissors, Users, Info, User, Trash2, MessageCircle, CreditCard, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ServiceCard } from "@/components/booking/ServiceCard";
+import { ServiceCard, type Service as CardService } from "@/components/booking/ServiceCard";
 import { ProfessionalCard } from "@/components/booking/ProfessionalCard";
 import { TimeSlotGrid } from "@/components/booking/TimeSlotGrid";
 import { Header } from "@/components/Header";
@@ -43,6 +43,108 @@ function extractInstagramHandle(raw: string | null | undefined): string | null {
   const urlMatch = raw.match(/instagram\.com\/([^/?#]+)/i);
   if (urlMatch) return urlMatch[1].replace(/\/$/, "");
   return raw.replace(/^@/, "").trim() || null;
+}
+
+// ─── TypeScript Interfaces ───────────────────────────────────────────────────
+
+interface BookingEngineRow {
+  barbearia_id: string;
+  professional_id: string;
+  professional_name: string;
+  instagram: string | null;
+  avatar_url: string | null;
+  job_title: string | null;
+  service_id: string;
+  service_name: string;
+  service_description: string | null;
+  base_price: number;
+  base_duration_min: number;
+  promo_percentage: number | null;
+  promo_days: number[] | null;
+  resolved_price: number;
+  resolved_duration: number;
+}
+
+interface ProfessionalRaw {
+  id: string;
+  name: string;
+  instagram: string | null;
+  avatar_url: string | null;
+  job_title: string | null;
+}
+
+interface AvailableProf {
+  id: string;
+  name: string;
+  instagram: string | null;
+  avatar_url: string | null;
+  job_title: string | null;
+  price: number;
+  duration: number;
+}
+
+interface ServiceIntermediate {
+  id: string;
+  name: string;
+  description: string | null;
+  basePrice: number;
+  promoPercentage: number;
+  promoDays: number[];
+  promoText: string | null;
+  durationDisplay: string;
+  availableProfs: AvailableProf[];
+}
+
+interface MappedService extends ServiceIntermediate {
+  minPrice: number;
+  isStartingPrice: boolean;
+  priceDisplay: string;
+}
+
+interface BookingProfessional {
+  id: string;
+  name: string;
+  avatar: string | undefined;
+  instagram: string | null;
+  rawPrice: number;
+  rawDuration: number;
+  priceDisplay: string;
+}
+
+interface ShopInfo {
+  name: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+  cover_image: string | null;
+  rating: number | null;
+  review_count: number;
+  street: string | null;
+  address_number: string | null;
+  complement: string | null;
+  zip_code: string | null;
+  instagram_url: string | null;
+  whatsapp: string | null;
+  about: string | null;
+  payment_methods: string[] | null;
+  working_hours: Record<string, { open: string; close: string; closed: boolean }> | null;
+}
+
+interface Review {
+  id: string;
+  shop_id: string;
+  client_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  client_name: string;
+  client_avatar: string | null;
+}
+
+interface ProfileRow {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
 // ─── CalendarPicker ──────────────────────────────────────────────────────────
@@ -114,8 +216,8 @@ function ProfessionaisTab({
   professionals,
   onSelectProfessional,
 }: {
-  professionals: any[];
-  onSelectProfessional: (prof: any) => void;
+  professionals: ProfessionalRaw[];
+  onSelectProfessional: (prof: ProfessionalRaw) => void;
 }) {
   if (professionals.length === 0) {
     return (
@@ -183,12 +285,12 @@ function AvaliacoesTab({ shopId }: { shopId: string }) {
         .order("created_at", { ascending: false });
       if (error) throw error;
       if (!revs?.length) return [];
-      const clientIds = [...new Set(revs.map((r: any) => r.client_id))];
+      const clientIds = [...new Set(revs.map((r: { client_id: string }) => r.client_id))];
       const { data: profs } = await supabase
         .from("profiles").select("id, name, avatar_url").in("id", clientIds);
-      return revs.map((r: any) => {
-        const p = profs?.find((p: any) => p.id === r.client_id);
-        return { ...r, client_name: p?.name || "Usuário BarberPro", client_avatar: p?.avatar_url };
+      return revs.map((r) => {
+        const p = (profs as ProfileRow[] | null)?.find((pr) => pr.id === r.client_id);
+        return { ...r, client_name: p?.name || "Usuário BarberPro", client_avatar: p?.avatar_url ?? null } as Review;
       });
     },
     // Avaliações podem ser lidas por qualquer pessoa — cache de 5 min
@@ -196,11 +298,11 @@ function AvaliacoesTab({ shopId }: { shopId: string }) {
     enabled: !!shopId,
   });
 
-  const myReview     = useMemo(() => reviews.find((r: any) => r.client_id === currentUser?.id), [reviews, currentUser]);
-  const otherReviews = useMemo(() => reviews.filter((r: any) => r.client_id !== currentUser?.id), [reviews, currentUser]);
+  const myReview     = useMemo(() => reviews.find((r: Review) => r.client_id === currentUser?.id), [reviews, currentUser]);
+  const otherReviews = useMemo(() => reviews.filter((r: Review) => r.client_id !== currentUser?.id), [reviews, currentUser]);
   const averageRating = useMemo(() => {
     if (!reviews.length) return 0;
-    return (reviews.reduce((a: number, r: any) => a + r.rating, 0) / reviews.length).toFixed(1);
+    return (reviews.reduce((a: number, r: Review) => a + r.rating, 0) / reviews.length).toFixed(1);
   }, [reviews]);
 
   const handleSubmit = async () => {
@@ -217,8 +319,8 @@ function AvaliacoesTab({ shopId }: { shopId: string }) {
       await queryClient.invalidateQueries({ queryKey: ["featured-shops-real"] });
       toast.success("Avaliação enviada!", { id: toastId });
       setRating(0); setComment(""); setView("list");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao enviar.", { id: toastId });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao enviar.", { id: toastId });
     } finally { setIsSubmitting(false); }
   };
 
@@ -230,7 +332,7 @@ function AvaliacoesTab({ shopId }: { shopId: string }) {
       await refetch();
       await queryClient.invalidateQueries({ queryKey: ["featured-shops-real"] });
       toast.success("Avaliação excluída.", { id: toastId });
-    } catch (e: any) { toast.error("Falha ao excluir.", { id: toastId }); }
+    } catch { toast.error("Falha ao excluir.", { id: toastId }); }
   };
 
   if (view === "form") return (
@@ -314,12 +416,12 @@ function AvaliacoesTab({ shopId }: { shopId: string }) {
           <p className="text-xs text-muted-foreground italic text-center py-6">Nenhuma avaliação ainda.</p>
         ) : (
           <>
-            {otherReviews.slice(0, visibleCount).map((rev: any) => (
+            {otherReviews.slice(0, visibleCount).map((rev: Review) => (
               <div key={rev.id} className="p-4 rounded-2xl bg-secondary/20 border border-white/5 space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={rev.client_avatar}/>
+                      <AvatarImage src={rev.client_avatar ?? undefined}/>
                       <AvatarFallback className="bg-secondary text-[10px] font-bold"><User className="w-4 h-4"/></AvatarFallback>
                     </Avatar>
                     <div>
@@ -364,7 +466,7 @@ const DAYS_LABEL: Record<string, string> = {
   "5": "Sex", "6": "Sáb", "0": "Dom",
 };
 
-function DetalhesTab({ shop }: { shop: any }) {
+function DetalhesTab({ shop }: { shop: ShopInfo }) {
   const address     = [shop.street, shop.address_number, shop.complement].filter(Boolean).join(", ");
   const cityState   = [shop.neighborhood, shop.city, shop.state].filter(Boolean).join(" — ");
   const fullAddress = [address, cityState, shop.zip_code].filter(Boolean).join(", ");
@@ -516,7 +618,7 @@ export default function Index() {
   const [calendarDate, setCalendarDate]         = useState<string>(new Date().toLocaleDateString("pt-BR"));
   const [selectedTime, setSelectedTime]         = useState<string | null>(null);
   const [authDialogOpen, setAuthDialogOpen]     = useState(false);
-  const [detailsModalService, setDetailsModalService] = useState<any | null>(null);
+  const [detailsModalService, setDetailsModalService] = useState<CardService | null>(null);
 
   const todayStr = useMemo(() => new Date().toLocaleDateString("pt-BR"), []);
   const tomorrowStr = useMemo(() => {
@@ -548,10 +650,10 @@ export default function Index() {
       if (shopError)  console.warn("[BookingEngine] shop error:", shopError);
       if (viewError)  console.warn("[BookingEngine] view error:", viewError);
 
-      const rows = viewRows || [];
+      const rows = (viewRows ?? []) as BookingEngineRow[];
 
       // Profissionais únicos (para a aba Profissionais)
-      const profMap = new Map<string, any>();
+      const profMap = new Map<string, ProfessionalRaw>();
       for (const r of rows) {
         if (!profMap.has(r.professional_id)) {
           profMap.set(r.professional_id, {
@@ -566,7 +668,7 @@ export default function Index() {
       const professionals = Array.from(profMap.values());
 
       // Serviços únicos com profissionais disponíveis
-      const serviceMap = new Map<string, any>();
+      const serviceMap = new Map<string, ServiceIntermediate>();
       for (const r of rows) {
         if (!serviceMap.has(r.service_id)) {
           serviceMap.set(r.service_id, {
@@ -574,15 +676,15 @@ export default function Index() {
             name:            r.service_name,
             description:     r.service_description,
             basePrice:       r.base_price,
-            promoPercentage: r.promo_percentage || 0,
-            promoDays:       r.promo_days || [],
+            promoPercentage: r.promo_percentage ?? 0,
+            promoDays:       r.promo_days ?? [],
             promoText:       getPromoText(r.promo_percentage, r.promo_days),
             durationDisplay: formatDuration(r.base_duration_min),
             availableProfs:  [],
           });
         }
         // Adiciona o profissional ao serviço
-        serviceMap.get(r.service_id).availableProfs.push({
+        serviceMap.get(r.service_id)!.availableProfs.push({
           id:        r.professional_id,
           name:      r.professional_name,
           instagram: r.instagram,
@@ -594,10 +696,10 @@ export default function Index() {
       }
 
       // Calcula preços mín/máx e priceDisplay por serviço
-      const services = Array.from(serviceMap.values())
+      const services: MappedService[] = Array.from(serviceMap.values())
         .filter(s => s.availableProfs.length > 0)
         .map(s => {
-          const prices   = s.availableProfs.map((p: any) => p.price);
+          const prices   = s.availableProfs.map((p: AvailableProf) => p.price);
           const minPrice = Math.min(...prices);
           const maxPrice = Math.max(...prices);
           return {
@@ -617,18 +719,18 @@ export default function Index() {
     enabled: !!shopId,
   });
 
-  const services      = bookingData?.services      || [];
-  const professionals = bookingData?.professionals || [];
-  const shopInfo      = bookingData?.shop;
+  const services      = useMemo(() => bookingData?.services      ?? [], [bookingData]);
+  const professionals = useMemo(() => bookingData?.professionals ?? [], [bookingData]);
+  const shopInfo      = bookingData?.shop ?? null;
 
   const selectedServiceObj = useMemo(
-    () => services.find((s: any) => s.id === selectedService),
+    () => services.find((s: MappedService) => s.id === selectedService),
     [services, selectedService]
   );
 
-  const availableProfessionalsForService = useMemo(() => {
+  const availableProfessionalsForService = useMemo((): BookingProfessional[] => {
     if (!selectedServiceObj) return [];
-    return selectedServiceObj.availableProfs.map((p: any) => ({
+    return selectedServiceObj.availableProfs.map((p: AvailableProf) => ({
       id:           p.id,
       name:         p.name,
       avatar:       p.avatar_url ?? undefined,
@@ -640,7 +742,7 @@ export default function Index() {
   }, [selectedServiceObj]);
 
   const selectedProfessionalObj = useMemo(
-    () => availableProfessionalsForService.find((p: any) => p.id === selectedProfessional),
+    () => availableProfessionalsForService.find((p: BookingProfessional) => p.id === selectedProfessional),
     [availableProfessionalsForService, selectedProfessional]
   );
 
@@ -656,15 +758,15 @@ export default function Index() {
   // exibe apenas os serviços que ele realiza. No fluxo normal, exibe tudo.
   const filteredServices = useMemo(() => {
     if (!selectedProfessional || selectedService) return services;
-    return services.filter((s: any) =>
-      s.availableProfs.some((p: any) => p.id === selectedProfessional)
+    return services.filter((s: MappedService) =>
+      s.availableProfs.some((p: AvailableProf) => p.id === selectedProfessional)
     );
   }, [services, selectedProfessional, selectedService]);
 
   // Nome do profissional que está sendo usado como filtro (fluxo invertido)
   const filterProfName = useMemo(() => {
     if (!selectedProfessional || selectedService) return null;
-    return professionals.find((p: any) => p.id === selectedProfessional)?.name ?? null;
+    return professionals.find((p: ProfessionalRaw) => p.id === selectedProfessional)?.name ?? null;
   }, [professionals, selectedProfessional, selectedService]);
 
   const handleSelectService = (id: string) => {
@@ -690,7 +792,7 @@ export default function Index() {
 
   const handleSelectProfessional = (id: string) => { setSelectedProfessional(id); setSelectedTime(null); };
 
-  const handleSelectFromProfTab = (prof: any) => {
+  const handleSelectFromProfTab = (prof: ProfessionalRaw) => {
     setSelectedProfessional(prof.id);
     setSelectedService(null);
     setSelectedTime(null);
@@ -732,7 +834,7 @@ export default function Index() {
         .gte("appointment_date", dayStart.toISOString())
         .lte("appointment_date", dayEnd.toISOString())
         .not("status", "in", '("cancelado","canceled","cancelled")');
-      return (data ?? []).map((a: any) => {
+      return (data ?? []).map((a: { appointment_date: string }) => {
         const d = new Date(a.appointment_date);
         return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
       });
@@ -899,7 +1001,7 @@ export default function Index() {
               <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 items-start">
                 {isDataLoading
                   ? [1,2,3].map(i => <div key={i} className="h-32 w-full bg-secondary/50 animate-pulse rounded-3xl border border-border/50"/>)
-                  : filteredServices.map((s: any) => (
+                  : filteredServices.map((s: MappedService) => (
                     <ServiceCard key={s.id}
                       service={{...s, duration: s.durationDisplay, promoText: null}}
                       isSelected={selectedService === s.id}
@@ -931,7 +1033,7 @@ export default function Index() {
               </div>
               {selectedService && (
                 <div className="flex gap-3 sm:gap-4 overflow-x-auto sm:flex-wrap py-4 -my-4 -mx-4 px-4 sm:mx-0 sm:px-1 no-scrollbar animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  {availableProfessionalsForService.map((p: any) => (
+                  {availableProfessionalsForService.map((p: BookingProfessional) => (
                     <div key={p.id} className="shrink-0 w-[150px] sm:w-[170px]">
                       <ProfessionalCard professional={p} isSelected={selectedProfessional === p.id} onSelect={handleSelectProfessional}/>
                     </div>
@@ -1039,7 +1141,7 @@ export default function Index() {
           </div>
           <div className="p-4 bg-background/50 border-t border-border/30 flex gap-3">
             <Button variant="outline" onClick={() => setDetailsModalService(null)} className="flex-1 h-12 rounded-xl font-bold uppercase tracking-widest text-[10px]">Fechar</Button>
-            <Button onClick={() => { handleSelectService(detailsModalService?.id); setDetailsModalService(null); setActiveTab("servicos"); }}
+            <Button onClick={() => { handleSelectService(detailsModalService!.id); setDetailsModalService(null); setActiveTab("servicos"); }}
               className="flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-[10px] bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               Selecionar
             </Button>

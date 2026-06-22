@@ -158,8 +158,8 @@ export default function SignupCliente() {
 
       toast.success("Quase lá! Verifique seu e-mail.", { id: toastId });
       setStep(2);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao cadastrar.", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao cadastrar.", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }

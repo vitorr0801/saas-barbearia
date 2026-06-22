@@ -77,7 +77,7 @@ export default function FavoritesPage() {
         .eq("status", "active");
       if (error) throw error;
       return (
-        (data ?? []).map((s: any) => ({
+        (data ?? []).map((s: { id: string; name: string; neighborhood: string | null; categories: string[] | null; cover_image: string | null; status: string | null }) => ({
           id: s.id,
           name: s.name,
           neighborhood: s.neighborhood ?? "—",

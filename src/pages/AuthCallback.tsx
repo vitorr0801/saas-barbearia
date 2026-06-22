@@ -68,7 +68,7 @@ export default function AuthCallback() {
         setStatus("Bem-vindo de volta!");
         navigate("/descobrir", { replace: true });
 
-      } catch (err: any) {
+      } catch (err) {
         console.error("Auth Error:", err);
         toast.error("Erro ao validar acesso.");
         navigate("/login-cliente", { replace: true });

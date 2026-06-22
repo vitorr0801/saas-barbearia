@@ -105,8 +105,8 @@ export default function ClientProfile() {
       toast.success("Perfil atualizado!", { id: toastId });
       setHasChanges(false);
       setIsEditing(false);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar dados", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -137,8 +137,8 @@ export default function ClientProfile() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar senha", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar senha", { id: toastId });
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -167,8 +167,8 @@ export default function ClientProfile() {
       await logout();
       window.location.href = "/";
       
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao excluir conta", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir conta", { id: toastId });
       setIsDeletingAccount(false);
     }
   };

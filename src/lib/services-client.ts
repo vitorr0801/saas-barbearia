@@ -71,7 +71,7 @@ export async function updateMasterServiceClient(input: MasterService): Promise<{
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const data = await parseJson<{}>(res);
+  const data = await parseJson<Record<string, unknown>>(res);
   if (!res.ok) return { error: data.error || "Não foi possível atualizar o serviço." };
   return {};
 }
@@ -85,7 +85,7 @@ export async function deleteMasterServiceClient(id: string): Promise<{ error?: s
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ id }),
   });
-  const data = await parseJson<{}>(res);
+  const data = await parseJson<Record<string, unknown>>(res);
   if (!res.ok) return { error: data.error || "Não foi possível excluir o serviço." };
   return {};
 }
@@ -118,7 +118,7 @@ export async function toggleMyService(serviceId: string, isActive: boolean): Pro
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ service_id: serviceId, is_active: isActive }),
   });
-  const data = await parseJson<{}>(res);
+  const data = await parseJson<Record<string, unknown>>(res);
   if (!res.ok) return { error: data.error || "Não foi possível atualizar." };
   return {};
 }

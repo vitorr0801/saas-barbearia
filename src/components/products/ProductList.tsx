@@ -79,7 +79,7 @@ export function ProductList() {
       handleUpdateEverything();
       setProductToDelete(null);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
       setProductToDelete(null);
     },

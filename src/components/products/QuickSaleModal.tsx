@@ -77,7 +77,7 @@ export function QuickSaleModal({ open, onOpenChange, product, onSaleComplete }: 
       onSaleComplete(); // Avisa a lista para atualizar o estoque
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao registrar venda",
         description: error.message,

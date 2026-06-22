@@ -123,8 +123,8 @@ export function ReviewModal({ isOpen, onOpenChange, shopId, shopName, onSuccess 
       setComment("");
       setCurrentView('list'); // Volta pro mural
       
-    } catch (error: any) {
-      toast.error(error.message || "Falha ao enviar avaliação.", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao enviar avaliação.", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }
@@ -140,7 +140,7 @@ export function ReviewModal({ isOpen, onOpenChange, shopId, shopName, onSuccess 
       await queryClient.invalidateQueries({ queryKey: ["featured-shops-real"] });
       
       toast.success("Avaliação excluída.", { id: toastId });
-    } catch (error: any) {
+    } catch {
       toast.error("Falha ao excluir.", { id: toastId });
     }
   };

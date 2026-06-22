@@ -45,7 +45,7 @@ export function AddProductModal({ open, onOpenChange, onSuccess }: AddProductMod
       onSuccess(); // Invalida o cache e recarrega a lista
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao cadastrar",
         description: error.message,

@@ -1,10 +1,10 @@
 "use client";
 
 import React, { memo } from "react";
-import { ShopCard } from "./ShopCard";
+import { ShopCard, type Shop } from "./ShopCard";
 
 interface FavoriteSectionProps {
-  favorites: any[];
+  favorites: Shop[];
   favoriteIds: string[]; 
   onSelectShop: (id: string) => void;
 }

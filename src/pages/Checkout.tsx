@@ -124,7 +124,7 @@ export default function Checkout() {
       });
 
       navigate("/sucesso", { replace: true });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao salvar:", error?.message || error);
       const message = error instanceof Error ? error.message : "Não foi possível salvar. Tente novamente.";
       toast({

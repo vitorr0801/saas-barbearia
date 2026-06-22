@@ -77,9 +77,9 @@ export function BarberServicesModal({ barberId, barberName, barbeariaId, open, o
       });
 
       setLocalServices(merged);
-    } catch (e: any) {
+    } catch (e) {
       console.error("[BarberServicesModal] Erro Crítico:", e);
-      setErrorMsg(e.message);
+      setErrorMsg(e instanceof Error ? e.message : "Erro ao carregar serviços.");
     } finally {
       setIsLoading(false);
     }
@@ -150,8 +150,8 @@ export function BarberServicesModal({ barberId, barberName, barbeariaId, open, o
       
       toast.success("Serviços atualizados com sucesso!", { id: toastId });
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar serviços.", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar serviços.", { id: toastId });
     } finally {
       setIsSaving(false);
     }

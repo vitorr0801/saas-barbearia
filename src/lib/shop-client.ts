@@ -72,7 +72,7 @@ export async function updateMyShopSettings(input: {
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const data = await parseJson<{}>(res);
+  const data = await parseJson<Record<string, unknown>>(res);
   if (!res.ok) return { error: data.error || "Não foi possível salvar." };
   return {};
 }

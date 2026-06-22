@@ -112,7 +112,7 @@ export default function BarbershopSettings() {
   const [state, setState]                   = useState("");
   const [isFetchingCep, setIsFetchingCep]   = useState(false);
   const numberInputRef = useRef<HTMLInputElement>(null);
-  const [savedLocation, setSavedLocation]   = useState<any | null>(null);
+  const [savedLocation, setSavedLocation]   = useState<string | null>(null);
   const initialAddressRef                   = useRef<string>("");
 
   // Snapshot dos valores salvos — atualizado após load e após save bem-sucedido
@@ -367,7 +367,7 @@ export default function BarbershopSettings() {
         city,
         state,
         location:        locationPoint,
-      } as any);
+      });
 
       if (error) throw new Error(error);
 

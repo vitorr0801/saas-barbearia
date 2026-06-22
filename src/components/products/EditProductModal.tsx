@@ -55,7 +55,7 @@ export function EditProductModal({ open, onOpenChange, product, onSuccess }: Edi
       onSuccess(); // Invalida o cache e recarrega a lista instantaneamente
       onOpenChange(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Erro ao atualizar",
         description: error.message,

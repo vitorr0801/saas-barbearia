@@ -37,8 +37,11 @@ const metrics = [
   { label: "Previsão de Fechamento", value: "R$ 32.100", change: "Alta", icon: Target }
 ]
 
+interface TooltipPayload { value: number; name: string; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipPayload[]; }
+
 // Tooltip Personalizado para o Gráfico (Design Limpo e Premium)
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-card/95 backdrop-blur-md border border-primary/30 p-4 rounded-xl shadow-2xl shadow-primary/10">

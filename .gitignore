@@ -46,3 +46,6 @@ coverage/
 # Arquivos ocultos adicionais do macOS
 ._*
 .Trashes
+
+.env
+.env.*

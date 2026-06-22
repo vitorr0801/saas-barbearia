@@ -60,7 +60,7 @@ function isValidCNPJ(cnpj: string): boolean {
   if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
   let size = cnpj.length - 2;
   let numbers = cnpj.substring(0, size);
-  let digits = cnpj.substring(size);
+  const digits = cnpj.substring(size);
   let sum = 0, pos = size - 7;
   for (let i = size; i >= 1; i--) {
     sum += parseInt(numbers.charAt(size - i)) * pos--;
@@ -331,8 +331,8 @@ export default function Onboarding() {
         navigate("/dashboard", { replace: true });
       }, 500);
 
-    } catch (err: any) {
-      toast.error(err.message || "Erro no setup.", { id: toastId });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro no setup.", { id: toastId });
       setIsSubmitting(false); 
     }
   };

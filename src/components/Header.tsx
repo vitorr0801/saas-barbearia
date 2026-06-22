@@ -350,7 +350,14 @@ export function Header({ hideSearch = false }: HeaderProps) {
   )
 }
 
-function MobileNavItem({ icon, label, to, onClick, show }: any) {
+interface MobileNavItemProps {
+  icon: React.ReactElement;
+  label: string;
+  to: string;
+  onClick?: () => void;
+  show: boolean;
+}
+function MobileNavItem({ icon, label, to, onClick, show }: MobileNavItemProps) {
   if (!show) return null;
   return (
     <Link to={to} onClick={onClick} className="flex items-center gap-4 p-4 font-black uppercase tracking-widest text-[10px] text-white/70 hover:bg-white/5 rounded-2xl transition-all">

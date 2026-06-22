@@ -152,7 +152,8 @@ export async function listBarberServiceToggles(
     .eq("professional_id", params.barberId);
   if (linksErr) return { ok: false, message: linksErr.message || "Falha ao listar seus serviços." };
 
-  const activeIds = (links ?? []).filter((l: any) => l?.is_active).map((l: any) => String(l.service_id));
+  type BarberServiceLink = { service_id: string; is_active: boolean };
+  const activeIds = (links ?? [] as BarberServiceLink[]).filter((l) => l.is_active).map((l) => l.service_id);
   return { ok: true, services: (master ?? []) as ServiceRow[], activeServiceIds: activeIds };
 }
 
@@ -197,7 +198,7 @@ export type BarbershopSettingsRow = {
   state: string | null;
   instagram_url: string | null;
   whatsapp: string | null;
-  location: any | null;
+  location: string | null;
   // ✅ Campos novos
   about: string | null;
   working_hours: Record<string, DaySchedule> | null;

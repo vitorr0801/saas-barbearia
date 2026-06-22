@@ -144,11 +144,11 @@ export default function SignupBarbeiro() {
         password: loginPassword,
       });
 
-      const timeoutPromise = new Promise((_, reject) =>
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Tempo limite excedido. O servidor não respondeu.")), 15000)
       );
 
-      const { error } = await Promise.race([loginPromise, timeoutPromise]) as any;
+      const { error } = await Promise.race([loginPromise, timeoutPromise]);
 
       if (error) {
         toast.error(error.message, { id: toastId });
@@ -156,9 +156,9 @@ export default function SignupBarbeiro() {
       } else {
         toast.success("Credenciais aceitas! Entrando...", { id: toastId });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro Crítico de Login:", error);
-      toast.error(error.message || "Erro de conexão.", { id: toastId });
+      toast.error(error instanceof Error ? error.message : "Erro de conexão.", { id: toastId });
       setIsSubmitting(false);
     }
   };
@@ -231,8 +231,8 @@ export default function SignupBarbeiro() {
         toast.success("Sucesso! Verifique seu e-mail para ativar a conta.", { id: toastId });
         setStep(2);
       }
-    } catch (error: any) {
-      toast.error(error.message, { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro inesperado.", { id: toastId });
       setIsSubmitting(false);
     }
   };

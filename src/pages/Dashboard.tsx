@@ -230,7 +230,7 @@ export default function Dashboard() {
       
       await queryClient.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       
-    } catch (e: any) {
+    } catch (e) {
       console.error("[Concluir Atendimento]:", e);
       toast.error("Erro ao concluir.", { id: toastId, description: "Tente novamente." });
     } finally {

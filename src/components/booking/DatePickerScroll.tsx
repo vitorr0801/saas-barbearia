@@ -26,7 +26,7 @@ export function DatePickerScroll({ dates, selectedDate, onSelect }: DatePickerSc
         selectedElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     }
-  }, []);
+  }, [selectedDate]);
 
   return (
     <div 

@@ -23,6 +23,13 @@ import { Users, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+interface ProfileRow {
+  id: string;
+  commission_rate: number | null;
+  job_title: string | null;
+  provides_services: boolean | null;
+}
+
 export default function Team() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -50,7 +57,7 @@ export default function Team() {
 
       const ids = safeMembers.map(m => m.id).filter(Boolean);
 
-      let profilesData: any[] = [];
+      let profilesData: ProfileRow[] = [];
       if (ids.length > 0) {
         const { data: pData } = await supabase
           .from('profiles')
@@ -86,7 +93,7 @@ export default function Team() {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: async ({ email, job, providesServices }: any) => {
+    mutationFn: async ({ email, job, providesServices }: { email: string; job: string; providesServices: boolean }) => {
       const { error: mailError } = await inviteBarberByEmail(email, job, providesServices);
       if (mailError) throw new Error(mailError);
     },
@@ -94,7 +101,7 @@ export default function Team() {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success("Convite enviado com sucesso!");
     },
-    onError: (err: any) => toast.error(err.message || "Erro ao enviar convite")
+    onError: (err: Error) => toast.error(err.message || "Erro ao enviar convite")
   });
 
   const toggleAgendaMutation = useMutation({
@@ -119,7 +126,7 @@ export default function Team() {
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
       toast.success("Comissão atualizada!");
     },
-    onError: (err: any) => toast.error(err.message || "Erro ao atualizar a comissão.")
+    onError: (err: Error) => toast.error(err.message || "Erro ao atualizar a comissão.")
   });
 
   const removeMutation = useMutation({
@@ -132,7 +139,7 @@ export default function Team() {
       toast.success("Colaborador removido.");
       setRemoveTarget(null);
     },
-    onError: (err: any) => toast.error(err.message || "Falha ao remover.")
+    onError: (err: Error) => toast.error(err.message || "Falha ao remover.")
   });
 
   if (!barbeariaId) {

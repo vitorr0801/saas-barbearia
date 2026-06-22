@@ -22,6 +22,19 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+interface AppointmentRow {
+  id: string;
+  appointment_date: string;
+  status: string;
+  total_price?: number | null;
+  price?: number | null;
+  payment_method?: string | null;
+  service_name?: string | null;
+  professional_name?: string | null;
+  services?: { name: string } | null;
+  professional?: { name: string } | null;
+}
+
 export default function MyAppointments() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -66,11 +79,11 @@ export default function MyAppointments() {
     const isCanceled = (status: string) => ["cancelado", "canceled", "cancelled"].includes(status?.toLowerCase());
 
     return {
-      upcoming: appointments.filter((apt: any) => 
+      upcoming: appointments.filter((apt: AppointmentRow) =>
         // Pra ser "Próximo" NÃO pode estar concluído, NÃO pode estar cancelado E a data tem que ser no futuro
         !isCanceled(apt.status) && !isCompleted(apt.status) && new Date(apt.appointment_date) >= now
       ),
-      history: appointments.filter((apt: any) => 
+      history: appointments.filter((apt: AppointmentRow) =>
         // Se cancelou OU se o barbeiro apertou concluir OU se a data já expirou, joga no histórico
         isCanceled(apt.status) || isCompleted(apt.status) || new Date(apt.appointment_date) < now
       ).reverse()
@@ -97,13 +110,13 @@ export default function MyAppointments() {
       toast({ title: "Corte Cancelado ❌", description: "O horário foi liberado na agenda." });
       setIsCancelModalOpen(false);
       refetch();
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao cancelar", description: error.message });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao cancelar", description: error instanceof Error ? error.message : "Erro inesperado." });
     }
   };
 
   // UI Engine: Gera as cores de Tag Dinamicamente baseada na verdade do banco
-  const getStatusTag = (apt: any, isPastTime: boolean) => {
+  const getStatusTag = (apt: AppointmentRow, isPastTime: boolean) => {
     const status = apt.status?.toLowerCase();
     if (["cancelado", "canceled", "cancelled"].includes(status)) {
       return { text: "Cancelado", class: "bg-destructive/10 text-destructive border-destructive/20" };
@@ -185,7 +198,7 @@ export default function MyAppointments() {
           </div>
         ) : (
           <div className="grid gap-5 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {currentList.map((apt: any) => {
+            {currentList.map((apt: AppointmentRow) => {
               const dateObj = new Date(apt.appointment_date);
               const formattedDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
               const formattedTime = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });

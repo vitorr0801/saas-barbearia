@@ -126,7 +126,7 @@ function teamMiddleware(teamEnv: TeamEnv) {
           barbeariaId: owner.barbeariaId,
           inviteLink,
           inviteId, // Passamos o ID gerado para a camada de lógica
-        } as any); // 🛡️ 'as any' para evitar erro de TypeScript até ajustarmos o team-logic.ts
+        });
         
         if (!result.ok) {
           sendJson(res, 400, { error: result.message });

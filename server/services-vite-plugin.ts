@@ -80,10 +80,10 @@ function servicesMiddleware(env: ServicesEnv) {
     if (path === "/api/shop/me") {
       if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed" });
       
-      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+      if (who.role !== "barbeiro" || (!who.isAdmin && !who.isManager) || !who.barbeariaId) {
         return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
-      
+
       const result = await getBarbershopSettings(env, { barbeariaId: who.barbeariaId });
       if (!result.ok) return sendJson(res, 400, { error: result.message });
       return sendJson(res, 200, { shop: result.shop });
@@ -91,22 +91,22 @@ function servicesMiddleware(env: ServicesEnv) {
 
     if (path === "/api/shop/update") {
       if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed" });
-      
-      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+
+      if (who.role !== "barbeiro" || (!who.isAdmin && !who.isManager) || !who.barbeariaId) {
         return sendJson(res, 403, { error: "Acesso restrito à gestão (Dono ou Gerente)." });
       }
-      
+
       const raw = await readBody(req).catch(() => "");
-      let body: any = {};
+      let body: Record<string, unknown> = {};
       try {
-        body = raw ? JSON.parse(raw) : {};
+        body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
       } catch {
         return sendJson(res, 400, { error: "JSON inválido." });
       }
-      
+
       const name = typeof body.name === "string" ? body.name.trim() : "";
       const neighborhood = typeof body.neighborhood === "string" ? body.neighborhood.trim() : "";
-      const categories = Array.isArray(body.categories) ? body.categories.filter((c: any) => typeof c === "string") : [];
+      const categories = Array.isArray(body.categories) ? body.categories.filter((c): c is string => typeof c === "string") : [];
       const coverImage = typeof body.cover_image === "string" && body.cover_image.trim() ? body.cover_image.trim() : null;
       
       if (!name || name.length < 2) return sendJson(res, 400, { error: "Nome inválido." });
@@ -125,10 +125,10 @@ function servicesMiddleware(env: ServicesEnv) {
         state: typeof body.state === "string" ? body.state.trim() : null,
         instagram_url: typeof body.instagram_url === "string" ? body.instagram_url.trim() : null,
         whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : null,
-        location: body.location !== undefined ? body.location : null,
+        location: typeof body.location === "string" ? body.location : null,
         about: typeof body.about === "string" ? body.about.trim() || null : null,
-        working_hours: body.working_hours && typeof body.working_hours === "object" ? body.working_hours : null,
-        payment_methods: Array.isArray(body.payment_methods) ? body.payment_methods.filter((p: any) => typeof p === "string") : null,
+        working_hours: body.working_hours && typeof body.working_hours === "object" ? body.working_hours as Record<string, { open: string; close: string; closed: boolean }> : null,
+        payment_methods: Array.isArray(body.payment_methods) ? body.payment_methods.filter((p): p is string => typeof p === "string") : null,
       });
 
       if (!result.ok) return sendJson(res, 400, { error: result.message });
@@ -136,7 +136,7 @@ function servicesMiddleware(env: ServicesEnv) {
     }
 
     if (path === "/api/services/master") {
-      if (who.role !== "barbeiro" || (!who.isAdmin && !(who as any).isManager) || !who.barbeariaId) {
+      if (who.role !== "barbeiro" || (!who.isAdmin && !who.isManager) || !who.barbeariaId) {
         return sendJson(res, 403, { error: "Acesso restrito à gestão de serviços." });
       }
 
@@ -147,7 +147,7 @@ function servicesMiddleware(env: ServicesEnv) {
       }
 
       const raw = await readBody(req).catch(() => "");
-      let body: any = {};
+      let body: Record<string, unknown> = {};
       try {
         body = raw ? JSON.parse(raw) : {};
       } catch {
@@ -228,9 +228,9 @@ function servicesMiddleware(env: ServicesEnv) {
         return sendJson(res, 403, { error: "Apenas barbeiros podem atualizar serviços." });
       }
       const raw = await readBody(req).catch(() => "");
-      let body: any = {};
+      let body: Record<string, unknown> = {};
       try {
-        body = raw ? JSON.parse(raw) : {};
+        body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
       } catch {
         return sendJson(res, 400, { error: "JSON inválido." });
       }

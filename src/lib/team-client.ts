@@ -94,9 +94,9 @@ export async function inviteBarberByEmail(
 
     return { error: apiError };
 
-  } catch (err: any) {
+  } catch (err) {
     console.error("[Invite Flow Error]:", err);
-    return { error: err.message || "Falha ao processar convite." };
+    return { error: err instanceof Error ? err.message : "Falha ao processar convite." };
   }
 }
 

@@ -97,7 +97,7 @@ export function BarberWorkHoursModal({ barberId, barberName, barbeariaId, open, 
       } else {
         setSchedule(defaultSchedule);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       toast.error("Erro ao carregar horários.");
     } finally {
@@ -161,8 +161,8 @@ export function BarberWorkHoursModal({ barberId, barberName, barbeariaId, open, 
 
       toast.success("Horários atualizados com sucesso!", { id: toastId });
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar horários.", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar horários.", { id: toastId });
     } finally {
       setIsSaving(false);
     }

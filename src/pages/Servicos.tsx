@@ -47,7 +47,7 @@ export default function Servicos() {
   
   // Modal State
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
-  const [editingService, setEditingService] = useState<any | null>(null);
+  const [editingService, setEditingService] = useState<MasterService | null>(null);
   const [svcSaving, setSvcSaving] = useState(false);
 
   // Form State
@@ -86,7 +86,7 @@ export default function Servicos() {
     setServiceModalOpen(true);
   };
 
-  const openEditService = (s: any) => {
+  const openEditService = (s: MasterService) => {
     setEditingService(s); 
     setSvcName(s.name); 
     setSvcPrice(Number(s.price).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })); 
@@ -123,10 +123,10 @@ export default function Servicos() {
       };
 
       if (!editingService) {
-        const { error } = await createMasterServiceClient(payload as any);
+        const { error } = await createMasterServiceClient(payload);
         if (error) throw new Error(error);
       } else {
-        const { error } = await updateMasterServiceClient({ ...editingService, ...payload } as any);
+        const { error } = await updateMasterServiceClient({ ...editingService, ...payload });
         if (error) throw new Error(error);
       }
       
@@ -193,7 +193,7 @@ export default function Servicos() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {services.map((s: any) => {
+            {services.map((s: MasterService) => {
               const promoPerc = Number(s.promo_percentage) || 0;
               const hasPromo = promoPerc > 0;
               const promoDaysText = hasPromo && Array.isArray(s.promo_days) ? s.promo_days.map((d: number) => DIAS_SEMANA[d].label).join(", ") : "";

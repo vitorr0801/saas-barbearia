@@ -105,7 +105,7 @@ export default function BarberProfile() {
       });
       setAvatarUrl(profileData?.avatar_url ?? "");
       setInstagram(profileData?.instagram  ?? "");
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Profile] Erro crítico:", err);
     } finally {
       setProfileLoading(false);
@@ -139,8 +139,8 @@ export default function BarberProfile() {
       setHasChanges(false);
       setIsEditing(false);
       await loadProfileFromSupabase();
-    } catch (e: any) {
-      toast.error(e.message || "Erro inesperado ao salvar.", { id: toastId });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro inesperado ao salvar.", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -168,8 +168,8 @@ export default function BarberProfile() {
       toast.success("Senha atualizada com segurança! 🔒", { id: toastId });
       setIsPasswordModalOpen(false);
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar senha", { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar senha", { id: toastId });
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -190,7 +190,7 @@ export default function BarberProfile() {
       if (error) throw error;
       toast.success("Você saiu da equipe. O acesso será encerrado.", { id: toastId });
       setTimeout(async () => { await signOut(); navigate("/"); }, 1500);
-    } catch (error: any) {
+    } catch {
       toast.error("Erro ao desvincular conta.", { id: toastId });
       setIsDisconnecting(false);
     }
