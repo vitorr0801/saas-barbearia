@@ -14,9 +14,18 @@ Este projeto foi construído utilizando as seguintes tecnologias modernas de mer
 * **Backend e Banco de Dados:** Supabase (PostgreSQL, Autenticação, Row Level Security)
 
 ## 📚 Documentação
-* [Resumo Executivo (PDF)](./docs/ResumoExecutivoBarberPro.pdf)
+* [Resumo Executivo (PDF)](./docs/Resumo_Executivo_BarberPro.pdf)
 * [Documentação Negocial](./docs/negocial.md)
 * [Documentação Técnica](./docs/tecnica.md)
+
+## 🔄 Evolução e Ajustes a partir dos Feedbacks
+
+Após a primeira entrega, o projeto passou por uma rodada de refatoração técnica focada em qualidade de código e segurança:
+
+- **Eliminação de débito técnico de tipagem:** Refatoração completa eliminando 100% dos erros de linting `@typescript-eslint/no-explicit-any`. Todos os usos de `any` foram substituídos por interfaces TypeScript concretas que espelham os tipos retornados pelas queries do Supabase, tornando o contrato de dados explícito em toda a aplicação.
+- **Correção de dependências de hooks:** Resolução da violação de `react-hooks/exhaustive-deps` em componentes com `useEffect`, garantindo que os arrays de dependências reflitam com precisão os valores utilizados dentro de cada efeito e eliminando riscos de comportamento stale.
+- **Padronização de arquitetura cliente-servidor:** Unificação do padrão de tipagem nos clientes Supabase (`services-client.ts`, `shop-client.ts`, `team-client.ts`), eliminando usos de `parseJson<{}>` e substituindo por `Record<string, unknown>` com narrowing explícito nos pontos de consumo.
+- **Segurança de variáveis de ambiente:** Rotação das chaves vazadas acidentalmente versionadas e remoção do arquivo `.env` do cache do Git, impedindo que credenciais sensíveis persistam no histórico do repositório.
 
 ## 🚀 Instruções Básicas de Execução
 
@@ -36,7 +45,7 @@ npm install
 ```
 
 **Passo 3: Configure as variáveis de ambiente**
-Crie um arquivo `.env` na raiz do projeto e adicione as credenciais do Supabase. 
+Crie um arquivo `.env.local` na raiz do projeto e adicione as credenciais do Supabase.
 
 > **Nota de Segurança:** Por boas práticas, as credenciais do banco de dados oficial não são versionadas no repositório. Para testar a aplicação, solicite as chaves de acesso aos mantenedores do projeto ou crie o seu próprio projeto no Supabase e insira as suas credenciais abaixo.
 
@@ -44,7 +53,6 @@ Crie um arquivo `.env` na raiz do projeto e adicione as credenciais do Supabase.
 VITE_SUPABASE_PROJECT_ID=
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
 VITE_LOCATIONIQ_TOKEN=
 ```
 

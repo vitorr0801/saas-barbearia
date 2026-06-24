@@ -38,7 +38,7 @@ npm install
 ```
 
 **Passo 3: Configure as variáveis de ambiente**
-Crie um arquivo `.env` na raiz do projeto e adicione as credenciais do Supabase. 
+Crie um arquivo `.env.local` na raiz do projeto e adicione as credenciais do Supabase.
 
 > **Nota de Segurança:** Por boas práticas, as credenciais do banco de dados oficial não são versionadas no repositório. Para testar a aplicação, solicite as chaves de acesso aos mantenedores do projeto ou crie o seu próprio projeto no Supabase e insira as suas credenciais abaixo.
 
@@ -46,7 +46,6 @@ Crie um arquivo `.env` na raiz do projeto e adicione as credenciais do Supabase.
 VITE_SUPABASE_PROJECT_ID=
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
 VITE_LOCATIONIQ_TOKEN=
 ```
 
@@ -73,10 +72,9 @@ O esquema relacional em PostgreSQL foi modelado para garantir integridade refere
 - `**barber_work_hours`:** Controla a grade de horários, turnos e disponibilidade individual de cada profissional, evitando conflitos na agenda.
 - `**appointments`:** Tabela de alta transacionalidade que consolida as relações entre clientes, profissionais e serviços, registrando metadados críticos como data, hora, `total_price` e o status do atendimento.
 
-**Fidelização e Motor Geográfico**
+**Fidelização**
 
 - `**user_favorites`:** Permite que clientes finais salvem seus profissionais e estabelecimentos preferidos, fomentando a fidelização sistêmica.
-- **Módulo Espacial (PostGIS):** Composto pelas estruturas `geography_columns`, `geometry_columns` e `spatial_ref_sys`, este módulo suporta o motor de geolocalização da plataforma. Isso permite que o sistema priorize a exibição de barbearias na zona de conveniência do cliente (raio estratégico de conversão), otimizando a atração local.
 
 ### Mecanismos de Proteção e Governança
 
@@ -84,13 +82,13 @@ A segurança não é uma camada adicional, mas parte integrante da infraestrutur
 
 - **Row Level Security (RLS) & RBAC:** O sistema implementa políticas de segurança a nível de linha (RLS) para reforçar o Controle de Acesso Baseado em Funções (RBAC). Isso garante que um usuário só tenha visibilidade e poder de edição sobre dados que pertencem ao seu escopo de permissão.
 - **Privacidade por Design:** A arquitetura adota princípios de privacidade desde a sua concepção, assegurando que a integridade dos dados seja mantida e protegida contra acessos indevidos entre diferentes perfis e filiais.
-- **Consistência Sistêmica:** O uso de funções de agregação diretamente no banco de dados assegura que métricas de Business Intelligence, como o Ticket Médio (AOV), reflitam sempre o estado real das transações.
 
 ## 4. Decisões Técnicas e Segurança
 
 - **Row Level Security (RLS):** Implementação de políticas de segurança a nível de linha no Supabase. Isso garante que dados sensíveis de clientes e faturamento sejam acessíveis apenas por usuários autorizados.
 - **Validação de Formulários:** Uso de bibliotecas de validação para garantir que dados inconsistentes (como emails inválidos ou senhas fracas) não sejam processados.
 - **Consistência de Dados:** Uso de UUIDs e chaves estrangeiras para evitar o armazenamento de dados duplicados ou órfãos na tabela de agendamentos.
+- **Tipagem Estrita (TypeScript):** Eliminação de 100% dos erros `@typescript-eslint/no-explicit-any` no codebase. Todos os tipos de retorno das queries Supabase são representados por interfaces TypeScript concretas, tornando o contrato de dados explícito e detectando regressões em tempo de compilação.
 
 ## 5. Evidências de Desenvolvimento e Testes
 
@@ -101,4 +99,16 @@ As evidências concretas da evolução do projeto, testes de funcionalidades e d
 - **Histórico de Commits:** Registros atômicos e descritivos no GitHub que demonstram a evolução incremental do código, correções de bugs identificados durante os testes e implementação de novas features.
 - **Project Dashboard (Issues):** Utilizado para o rastreamento de tarefas, divisão de responsabilidades, relato de erros e acompanhamento do progresso do desenvolvimento.
 - **Pull Requests (PRs):** Documentação das integrações de código, evidenciando as revisões e validações feitas antes de incorporar novas funcionalidades à branch principal.
+- **Testes Automatizados (Vitest):** Implementação de testes unitários automatizados focados na regra de negócio central do sistema. A função `generateSlotsFromShift`, responsável pelo motor de geração de horários disponíveis para agendamento, é coberta por testes com o framework Vitest, validando cenários como geração correta de slots, respeito à duração dos serviços e exclusão de horários fora do turno do profissional.
 
+## 6. Roadmap Arquitetural e Funcional
+
+As capacidades abaixo representam evoluções planejadas para versões futuras do produto, após a consolidação do MVP. As decisões de modelagem tomadas no MVP (uso de PostgreSQL via Supabase, separação clara de entidades geográficas) foram feitas deliberadamente para que estas extensões possam ser incorporadas de forma incremental.
+
+**Módulo Espacial (PostGIS)**
+
+A extensão PostGIS do PostgreSQL habilita o armazenamento e processamento de dados geoespaciais nativamente no banco. A integração planejada inclui as estruturas `geography_columns`, `geometry_columns` e `spatial_ref_sys`, que suportariam um motor de busca por proximidade. Isso permitiria priorizar a exibição de barbearias dentro da zona de conveniência do cliente, otimizando a atração local e aumentando a taxa de conversão de agendamentos.
+
+**Business Intelligence e Consistência de Métricas (BI e AOV)**
+
+A evolução prevê o uso de funções de agregação diretamente no banco de dados para gerar métricas de Business Intelligence confiáveis — como Ticket Médio (AOV), taxa de ocupação por profissional e custo de aquisição por canal. A computação no banco garante que estas métricas reflitam sempre o estado real das transações, eliminando inconsistências que surgiriam ao calcular esses valores na camada de aplicação.
