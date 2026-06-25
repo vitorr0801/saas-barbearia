@@ -115,7 +115,7 @@ export default function Dashboard() {
         .eq("barbearia_id", barbeariaId)
         .gte("appointment_date", monthStart)
         .lte("appointment_date", monthEnd)
-        .not("status", "eq", "cancelado");
+        .not("status", "eq", "cancelled");
 
       if (!isAdmin) {
         q = q.eq("professional_id", userId);
@@ -146,7 +146,7 @@ export default function Dashboard() {
     appointments.forEach((apt) => {
       const aptDate = new Date(apt.appointment_date);
       const isAptToday = isToday(aptDate);
-      const isCompleted = ["concluido", "completed"].includes(apt.status?.toLowerCase() || "");
+      const isCompleted = apt.status?.toLowerCase() === "completed";
       const value = apt.total_price || 0;
       const commission = apt.commission_value || 0;
 
@@ -218,7 +218,7 @@ export default function Dashboard() {
     try {
       const { error } = await supabase
         .from('appointments')
-        .update({ status: 'concluido' })
+        .update({ status: 'completed' })
         .eq('id', appointmentId);
         
       if (error) throw error;

@@ -28,7 +28,6 @@ const MyAppointments         = lazy(() => import("./pages/MyAppointments"));
 const Favorites              = lazy(() => import("./pages/Favorites"));
 const Team                   = lazy(() => import("./pages/Team"));
 const Index                  = lazy(() => import("./pages/Index"));
-const Checkout               = lazy(() => import("./pages/Checkout"));
 const BookingSuccess         = lazy(() => import("./pages/BookingSuccess"));
 const SignupCliente          = lazy(() => import("./pages/auth/SignupCliente"));
 const SignupBarbeiro         = lazy(() => import("./pages/auth/SignupBarbeiro"));
@@ -152,7 +151,6 @@ const AppRoutes = () => (
         <Route path="/meus-agendamentos"  element={<ProtectedRoute allowedRoles={["cliente"]}><MyAppointments /></ProtectedRoute>} />
         <Route path="/perfil/cliente"     element={<ProtectedRoute allowedRoles={["cliente"]}><ClientProfile /></ProtectedRoute>} />
         <Route path="/favoritos"          element={<ProtectedRoute allowedRoles={["cliente","barbeiro"]}><Favorites /></ProtectedRoute>} />
-        <Route path="/checkout"           element={<ProtectedRoute allowedRoles={["cliente"]}><Checkout /></ProtectedRoute>} />
         <Route path="/sucesso"            element={<ProtectedRoute allowedRoles={["cliente"]}><BookingSuccess /></ProtectedRoute>} />
 
         {/* Ecossistema barbearia (livres de layout) */}

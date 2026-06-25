@@ -49,10 +49,10 @@ const formatDuration = (minutes: number | null | undefined) => {
 
 const getStatusConfig = (status: string) => {
   const s = status?.toLowerCase() || "";
-  if (s === "concluido" || s === "completed") {
+  if (s === "completed") {
     return { label: "Concluído", class: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" };
   }
-  if (s === "cancelado" || s === "canceled" || s === "cancelled") {
+  if (s === "cancelled") {
     return { label: "Cancelado", class: "border-destructive/30 bg-destructive/10 text-destructive line-through" };
   }
   return { label: "Pendente", class: "border-amber-500/30 bg-amber-500/10 text-amber-500" };
@@ -173,7 +173,7 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
         <div className="grid gap-4">
           {appointments.map((apt) => {
             const statusConfig = getStatusConfig(apt.status);
-            const isFinished = ["concluido", "completed", "cancelado", "canceled"].includes(apt.status?.toLowerCase());
+            const isFinished = ["completed", "cancelled"].includes(apt.status?.toLowerCase());
             
             const isOwnerOfApt = apt.professional_id === userId;
             // 🚀 PODER DE CONCLUIR: É o dono do agendamento OU tem superpoderes!
@@ -238,14 +238,14 @@ export function AgendaDayView({ selectedDay, onSelectedDayChange, filterProfessi
                       <>
                         <Button 
                           disabled={updateStatus.isPending}
-                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'concluido' })}
+                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'completed' })}
                           className="rounded-xl h-10 px-5 text-[10px] font-black uppercase tracking-widest bg-emerald-500 hover:bg-emerald-600 text-white shadow-none transition-transform active:scale-95"
                         >
                           <CheckCircle2 className="mr-2 h-4 w-4" /> Concluir
                         </Button>
                         <Button 
                           disabled={updateStatus.isPending}
-                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'cancelado' })}
+                          onClick={() => updateStatus.mutate({ id: apt.id, status: 'cancelled' })}
                           variant="outline"
                           className="rounded-xl h-10 px-4 text-[10px] font-black uppercase tracking-widest border-destructive/20 text-destructive hover:bg-destructive/10"
                         >

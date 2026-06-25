@@ -37,7 +37,7 @@ export default function Agenda() {
         .eq("barbearia_id", barbeariaId)
         .gte("appointment_date", startOfMonth(selectedDay).toISOString())
         .lte("appointment_date", endOfMonth(selectedDay).toISOString())
-        .not("status", "eq", "cancelado");
+        .not("status", "eq", "cancelled");
 
       // Se NÃO tiver superpoder, vê apenas as suas próprias "bolinhas"
       if (!canSeeAllAgendas) {

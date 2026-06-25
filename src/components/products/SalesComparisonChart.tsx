@@ -18,7 +18,7 @@ export function SalesComparisonChart() {
         .from("appointments")
         .select("total_price")
         .eq("barbearia_id", currentUser.barbearia_id)
-        .eq("status", "concluido"); // Garante que só soma serviços pagos
+        .eq("status", "completed");
       
       if (error) throw error;
       return data.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0);

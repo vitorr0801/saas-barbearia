@@ -75,8 +75,8 @@ export default function MyAppointments() {
     const now = new Date();
     
     // Funções auxiliares para avaliar com precisão e blindar variações no banco
-    const isCompleted = (status: string) => ["concluido", "completed"].includes(status?.toLowerCase());
-    const isCanceled = (status: string) => ["cancelado", "canceled", "cancelled"].includes(status?.toLowerCase());
+    const isCompleted = (status: string) => status?.toLowerCase() === "completed";
+    const isCanceled = (status: string) => status?.toLowerCase() === "cancelled";
 
     return {
       upcoming: appointments.filter((apt: AppointmentRow) =>
@@ -102,7 +102,7 @@ export default function MyAppointments() {
     try {
       const { error } = await supabase
         .from("appointments")
-        .update({ status: 'canceled' })
+        .update({ status: 'cancelled' })
         .eq('id', aptToCancel.id)
         .eq('client_id', currentUser?.id);
 
@@ -118,10 +118,10 @@ export default function MyAppointments() {
   // UI Engine: Gera as cores de Tag Dinamicamente baseada na verdade do banco
   const getStatusTag = (apt: AppointmentRow, isPastTime: boolean) => {
     const status = apt.status?.toLowerCase();
-    if (["cancelado", "canceled", "cancelled"].includes(status)) {
+    if (status === "cancelled") {
       return { text: "Cancelado", class: "bg-destructive/10 text-destructive border-destructive/20" };
     }
-    if (["concluido", "completed"].includes(status) || isPastTime) {
+    if (status === "completed" || isPastTime) {
       return { text: "Concluído", class: "bg-muted text-muted-foreground border-border" };
     }
     if (status === "pending") {
@@ -207,8 +207,8 @@ export default function MyAppointments() {
               const statusStr = apt.status?.toLowerCase() || '';
               
               // Define logicamente se já é item do passado para a UI bloquear cliques
-              const isHistoryItem = isPastTime || ["concluido", "completed", "cancelado", "canceled", "cancelled"].includes(statusStr);
-              const isActuallyCanceled = ["cancelado", "canceled", "cancelled"].includes(statusStr);
+              const isHistoryItem = isPastTime || ["completed", "cancelled"].includes(statusStr);
+              const isActuallyCanceled = statusStr === "cancelled";
 
               const tagConfig = getStatusTag(apt, isPastTime);
 

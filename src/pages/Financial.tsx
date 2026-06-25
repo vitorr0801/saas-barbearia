@@ -88,7 +88,7 @@ export default function Financial() {
           professional:profiles!professional_id ( id, name )
         `)
         .eq("barbearia_id", barbeariaId)
-        .eq("status", "concluido")
+        .eq("status", "completed")
         .gte("appointment_date", startISO)
         .lte("appointment_date", endISO)
         .order("appointment_date", { ascending: false });

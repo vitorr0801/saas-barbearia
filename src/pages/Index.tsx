@@ -23,7 +23,6 @@ import { formatDuration } from "@/lib/formatDuration";
 import { BookingAuthRequiredDialog } from "@/components/booking/BookingAuthRequiredDialog";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import type { BookingCheckoutState } from "@/types/booking";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -619,6 +618,10 @@ export default function Index() {
   const [selectedTime, setSelectedTime]         = useState<string | null>(null);
   const [authDialogOpen, setAuthDialogOpen]     = useState(false);
   const [detailsModalService, setDetailsModalService] = useState<CardService | null>(null);
+  const [isSubmitting, setIsSubmitting]         = useState(false);
+
+  const { currentUser, role } = useAuth();
+  const queryClient = useQueryClient();
 
   const todayStr = useMemo(() => new Date().toLocaleDateString("pt-BR"), []);
   const tomorrowStr = useMemo(() => {
@@ -833,7 +836,7 @@ export default function Index() {
         .eq("professional_id", selectedProfessional)
         .gte("appointment_date", dayStart.toISOString())
         .lte("appointment_date", dayEnd.toISOString())
-        .not("status", "in", '("cancelado","canceled","cancelled")');
+        .not("status", "in", '("cancelled")');
       return (data ?? []).map((a: { appointment_date: string }) => {
         const d = new Date(a.appointment_date);
         return `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`;
@@ -879,25 +882,64 @@ export default function Index() {
     return `Confirmar Agendamento (${formatBRL(finalPrice)})`;
   }, [selectedService, selectedProfessional, selectedTime, finalPrice]);
 
-  const handleProceedToCheckout = async () => {
+  const handleConfirmBooking = async () => {
     if (!shopId || !selectedServiceObj || !selectedProfessionalObj || !selectedTime) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return setAuthDialogOpen(true);
+
+    if (role !== "cliente" || !currentUser?.id) {
+      toast.error("Conta de cliente necessária para concluir o agendamento.");
+      return;
+    }
+
+    const { data: activeForService, error: countError } = await supabase
+      .from("appointments")
+      .select("id")
+      .eq("client_id", currentUser.id)
+      .eq("service_id", selectedServiceObj.id)
+      .not("status", "in", '("cancelled","completed")');
+
+    if (countError) {
+      toast.error("Não foi possível verificar seus agendamentos. Tente novamente.");
+      return;
+    }
+
+    if ((activeForService?.length ?? 0) >= 2) {
+      toast.error(
+        `Você já tem 2 agendamentos ativos para "${selectedServiceObj.name}". Cancele um deles ou aguarde a conclusão antes de agendar novamente.`,
+        { duration: 6000 }
+      );
+      return;
+    }
+
     const [day, month, year] = selectedDate.split("/").map(Number);
     const [hours, minutes]   = selectedTime.split(":").map(Number);
-    const payload: BookingCheckoutState = {
-      shopId,
-      serviceId:         selectedServiceObj.id,
-      serviceName:       selectedServiceObj.name,
-      servicePrice:      finalPrice,
-      totalPriceDisplay: formatBRL(finalPrice),
-      professionalId:    selectedProfessionalObj.id,
-      professionalName:  selectedProfessionalObj.name,
-      appointmentDate:   new Date(year, month-1, day, hours, minutes).toISOString(),
-      dateLabel:         selectedDate===todayStr ? "Hoje" : selectedDate===tomorrowStr ? "Amanhã" : selectedDate,
-      time:              selectedTime,
-    };
-    navigate("/checkout", { state: payload });
+    const appointmentDate    = new Date(year, month-1, day, hours, minutes).toISOString();
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from("appointments").insert({
+        barbearia_id:     shopId,
+        professional_id:  selectedProfessionalObj.id,
+        service_id:       selectedServiceObj.id,
+        client_id:        currentUser.id,
+        appointment_date: appointmentDate,
+        status:           "pending",
+        total_price:      finalPrice,
+        service_name:     selectedServiceObj.name,
+        payment_method:   "local",
+      });
+      if (error) throw error;
+
+      await queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      await queryClient.invalidateQueries({ queryKey: ["booked-slots"] });
+
+      navigate("/sucesso", { replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -1105,14 +1147,14 @@ export default function Index() {
       {activeTab === "servicos" && (
         <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-background via-background/95 to-transparent z-50 pointer-events-none">
           <div className="max-w-4xl mx-auto">
-            <Button onClick={handleProceedToCheckout} disabled={!isBookingReady}
+            <Button onClick={handleConfirmBooking} disabled={!isBookingReady || isSubmitting}
               className={cn(
                 "w-full h-14 sm:h-16 text-sm sm:text-base font-black uppercase italic tracking-tight rounded-2xl pointer-events-auto transition-all duration-300",
-                isBookingReady
+                isBookingReady && !isSubmitting
                   ? "btn-primary-glow bg-primary text-primary-foreground shadow-2xl shadow-primary/40 hover:scale-[1.02]"
                   : "bg-secondary text-muted-foreground border border-border/50 cursor-not-allowed shadow-none"
               )}
-            >{checkoutButtonLabel}</Button>
+            >{isSubmitting ? "Processando…" : checkoutButtonLabel}</Button>
           </div>
         </div>
       )}
